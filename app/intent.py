@@ -46,7 +46,9 @@ def detect_language(text: str) -> str:
 
 
 def _ordinal_day(t: str) -> int | None:
-    m = re.search(r"(?:back|return(?:ing|s)?|wapas|vapas|वापस)[^.\d]{0,25}?(?:on|by)?\s*(?:the\s*)?(\d{1,2})(?:st|nd|rd|th)?", t)
+    # "back on the 24th" is a date; "back after 3 days" is a duration (handled in _parse_preferences)
+    m = re.search(r"(?:back|return(?:ing|s)?|wapas|vapas|वापस)[^.\d]{0,25}?(?:on|by)?\s*(?:the\s*)?(\d{1,2})(?:st|nd|rd|th)?"
+                  r"(?!\d|\s*(?:day|days|night|nights|din|raat|week|weeks|दिन|रात))", t)
     if not m:
         m = re.search(r"(\d{1,2})(?:st|nd|rd|th)?\s*(?:ko|को|तारीख|तारीख़)?\s*(?:ko\s*|को\s*)?(?:wapas|vapas|वापस)", t)
     if not m:
@@ -161,6 +163,8 @@ def parse_intent(text: str, today: date | None = None, previous: ParsedRequest |
     return out
 
 
+NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+                "couple of": 2, "a couple": 2, "ek": 1, "do": 2, "teen": 3, "char": 4, "chaar": 4, "paanch": 5}
 WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6}
 YES = r"\b(yes|yeah|yep|sure|please|ok|okay|haan|han|ha|ji|bilkul|zaroor)\b|हाँ|हां|जी"
 NO = r"\b(no|nope|nah|nahi|nahin|na)\b|नहीं"
@@ -205,10 +209,18 @@ def _parse_preferences(t: str, out: ParsedRequest, pending: list[str]) -> None:
     # "for 3 days", "2 nights", "back on Tuesday": return dates a traveller actually says
     if out.depart_date and not out.return_date and out.trip_type != "one_way":
         dep = date.fromisoformat(out.depart_date)
-        m = re.search(r"\b(?:for\s+)?(\d{1,2})\s+(day|days|night|nights)\b", t)
+        nums = "|".join(NUMBER_WORDS)
+        m = re.search(rf"\b(?:for\s+|in\s+|after\s+)?(\d{{1,2}}|{nums})\s+(day|days|night|nights|din|raat|week|weeks)\b|(\d+)\s*(?:दिन|रात)", t)
         w = re.search(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", t)
-        if m:
-            n = int(m.group(1))
+        if re.search(r"\b(a|one) week\b|\bek hafte?\b", t):
+            out.return_date, out.trip_type = (dep + timedelta(days=7)).isoformat(), "round_trip"
+        elif re.search(r"\bnext day\b|\bday after\b|\bagle din\b", t) and ("return_date" in pending or out.trip_type == "round_trip"):
+            out.return_date, out.trip_type = (dep + timedelta(days=1)).isoformat(), "round_trip"
+        elif m:
+            raw = m.group(1) or m.group(3)
+            n = int(raw) if raw.isdigit() else NUMBER_WORDS[raw]
+            if m.group(2) in ("week", "weeks"):
+                n *= 7
             out.return_date, out.trip_type = (dep + timedelta(days=n)).isoformat(), "round_trip"
         elif w and ("return_date" in pending or out.trip_type == "round_trip"):
             ahead = (WEEKDAYS[w.group(1)] - dep.weekday()) % 7 or 7

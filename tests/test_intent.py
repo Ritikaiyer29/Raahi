@@ -57,3 +57,11 @@ def test_one_question_at_a_time():
     assert q and "starting" in q[0]
     p = parse_intent("from Marol", today=TODAY, previous=p)
     assert missing_slots(p) == ["depart_date"]
+
+
+def test_return_said_the_way_people_say_it():
+    base = parse_intent("BKC to Connaught Place tomorrow", today=TODAY)  # depart 1 Nov
+    cases = {"Train is fine. I'll be back in two days.": "2026-11-03", "flight, coming back after 3 days": "2026-11-04",
+             "train, for a week": "2026-11-08", "train, 2 nights": "2026-11-03", "flight, back on the 3rd": "2026-11-03"}
+    for text, expected in cases.items():
+        assert parse_intent(text, today=TODAY, previous=base, pending=["mode", "trip_type"]).return_date == expected, text
