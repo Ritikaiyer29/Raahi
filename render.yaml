@@ -2,7 +2,7 @@ services:
   - type: web
     name: raahi
     runtime: docker
-    plan: starter        # free tier spins down; use a paid instance on demo day
+    plan: free           # free spins down after ~15 min idle; switch to starter on demo day (docs/DEMO_DAY.md)
     healthCheckPath: /healthz
     envVars:
       - key: APP_ENV
