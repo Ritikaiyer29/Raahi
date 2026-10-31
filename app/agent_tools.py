@@ -36,7 +36,7 @@ def _clean_token(value: str) -> tuple[str, int]:
     v, prefixes = value.strip().strip('"').strip("'").strip(), 0
     while v.lower().startswith("bearer "):
         v, prefixes = v[7:].strip(), prefixes + 1
-    return v, prefixes
+    return v.strip('"').strip("'").strip(), prefixes
 
 
 def require_tool_secret(authorization: str | None = Header(None)):
