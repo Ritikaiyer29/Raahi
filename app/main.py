@@ -62,8 +62,13 @@ async def healthz():
                 t0 = time.perf_counter()
                 await conn.execute(text("select 1"))  # one warm round trip: the number that decides planning speed
                 db_ms = round((time.perf_counter() - t0) * 1000)
-    except Exception as e:  # never include str(e): it can contain the connection string
+    except Exception as e:  # never include str(e) raw: guard against anything that looks like a connection string
         db_ok, err = False, type(e).__name__
+        orig = getattr(e, "orig", None) or e
+        detail = f"{type(orig).__name__}: {str(orig)[:140]}"
+        if "@" in detail or "://" in detail or "password" in detail.lower():
+            detail = type(orig).__name__
+        err = f"{err} / {detail}"
         log.error("healthz db check failed: %s", err)
     host = urlparse(settings.async_database_url).hostname if settings.database_url else "sqlite"
     return {"status": "ok" if db_ok else "degraded", "db": db_ok, "db_error": err, "db_host": host, "db_roundtrip_ms": db_ms,
