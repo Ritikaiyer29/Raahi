@@ -21,12 +21,6 @@ services:
         sync: false
       - key: SARVAM_LLM_MODEL
         sync: false
-      - key: SARVAM_STT_MODEL
-        sync: false
-      - key: SARVAM_TTS_MODEL
-        sync: false
-      - key: SARVAM_TTS_VOICE
-        sync: false
       - key: AGENT_TOOL_SECRET
         sync: false
       - key: SESSION_SIGNING_SECRET
