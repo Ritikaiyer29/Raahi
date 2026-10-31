@@ -114,8 +114,8 @@ CREATE TABLE IF NOT EXISTS flights (
 	PRIMARY KEY (id)
 );
 CREATE INDEX IF NOT EXISTS ix_flights_dep_at ON flights (dep_at);
-CREATE INDEX IF NOT EXISTS ix_flights_flight_no ON flights (flight_no);
 CREATE INDEX IF NOT EXISTS ix_flights_from_airport ON flights (from_airport);
+CREATE INDEX IF NOT EXISTS ix_flights_flight_no ON flights (flight_no);
 alter table public.flights enable row level security;
 revoke all on public.flights from anon, authenticated;
 
@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS conversations (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX IF NOT EXISTS ix_conversations_session_code ON conversations (session_code);
 alter table public.conversations enable row level security;
@@ -351,11 +351,13 @@ CREATE TABLE IF NOT EXISTS trip_requests (
 	requested_services JSONB NOT NULL, 
 	raw_text TEXT, 
 	missing_slots JSONB NOT NULL, 
+	assumed_slots JSONB NOT NULL, 
+	plan_type VARCHAR(12) NOT NULL, 
 	id UUID NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 alter table public.trip_requests enable row level security;
 revoke all on public.trip_requests from anon, authenticated;
@@ -364,13 +366,14 @@ CREATE TABLE IF NOT EXISTS trips (
 	user_id UUID NOT NULL DEFAULT gen_random_uuid(), 
 	request_id UUID, 
 	status VARCHAR(16) NOT NULL, 
+	plan_type VARCHAR(12) NOT NULL, 
 	revision INTEGER NOT NULL, 
 	selected_plan_id UUID, 
 	id UUID NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+	FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 alter table public.trips enable row level security;
 revoke all on public.trips from anon, authenticated;
@@ -378,13 +381,13 @@ revoke all on public.trips from anon, authenticated;
 CREATE TABLE IF NOT EXISTS carts (
 	trip_id UUID NOT NULL DEFAULT gen_random_uuid(), 
 	plan_id UUID NOT NULL, 
-	status VARCHAR(12) NOT NULL, 
+	status VARCHAR(20) NOT NULL, 
 	total INTEGER NOT NULL, 
 	id UUID NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE
+	FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX IF NOT EXISTS ix_carts_trip_id ON carts (trip_id);
 alter table public.carts enable row level security;
@@ -400,7 +403,7 @@ CREATE TABLE IF NOT EXISTS messages (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(conversation_id) REFERENCES conversations (id) ON DELETE CASCADE
+	FOREIGN KEY(conversation_id) REFERENCES conversations (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX IF NOT EXISTS ix_messages_conversation_id ON messages (conversation_id);
 alter table public.messages enable row level security;
@@ -416,7 +419,7 @@ CREATE TABLE IF NOT EXISTS trip_events (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE, 
+	FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, 
 	UNIQUE (seq)
 );
 CREATE INDEX IF NOT EXISTS ix_trip_events_trip_id ON trip_events (trip_id);
@@ -437,10 +440,10 @@ CREATE TABLE IF NOT EXISTS trip_plans (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(request_id) REFERENCES trip_requests (id) ON DELETE CASCADE
+	FOREIGN KEY(request_id) REFERENCES trip_requests (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
-CREATE INDEX IF NOT EXISTS ix_trip_plans_trip_id ON trip_plans (trip_id);
 CREATE INDEX IF NOT EXISTS ix_trip_plans_request_id ON trip_plans (request_id);
+CREATE INDEX IF NOT EXISTS ix_trip_plans_trip_id ON trip_plans (trip_id);
 alter table public.trip_plans enable row level security;
 revoke all on public.trip_plans from anon, authenticated;
 
@@ -453,7 +456,7 @@ CREATE TABLE IF NOT EXISTS approvals (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(cart_id) REFERENCES carts (id) ON DELETE CASCADE, 
+	FOREIGN KEY(cart_id) REFERENCES carts (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, 
 	UNIQUE (idempotency_key)
 );
 CREATE INDEX IF NOT EXISTS ix_approvals_cart_id ON approvals (cart_id);
@@ -469,10 +472,10 @@ CREATE TABLE IF NOT EXISTS bookings (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(cart_id) REFERENCES carts (id) ON DELETE CASCADE
+	FOREIGN KEY(cart_id) REFERENCES carts (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
-CREATE INDEX IF NOT EXISTS ix_bookings_cart_id ON bookings (cart_id);
 CREATE INDEX IF NOT EXISTS ix_bookings_trip_id ON bookings (trip_id);
+CREATE INDEX IF NOT EXISTS ix_bookings_cart_id ON bookings (cart_id);
 alter table public.bookings enable row level security;
 revoke all on public.bookings from anon, authenticated;
 
@@ -487,7 +490,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(cart_id) REFERENCES carts (id) ON DELETE CASCADE
+	FOREIGN KEY(cart_id) REFERENCES carts (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX IF NOT EXISTS ix_cart_items_cart_id ON cart_items (cart_id);
 alter table public.cart_items enable row level security;
@@ -505,7 +508,7 @@ CREATE TABLE IF NOT EXISTS check_results (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(plan_id) REFERENCES trip_plans (id) ON DELETE CASCADE
+	FOREIGN KEY(plan_id) REFERENCES trip_plans (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX IF NOT EXISTS ix_check_results_plan_id ON check_results (plan_id);
 alter table public.check_results enable row level security;
@@ -526,7 +529,7 @@ CREATE TABLE IF NOT EXISTS plan_legs (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(plan_id) REFERENCES trip_plans (id) ON DELETE CASCADE
+	FOREIGN KEY(plan_id) REFERENCES trip_plans (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX IF NOT EXISTS ix_plan_legs_plan_id ON plan_legs (plan_id);
 alter table public.plan_legs enable row level security;
@@ -547,9 +550,9 @@ CREATE TABLE IF NOT EXISTS tickets (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
-	FOREIGN KEY(booking_id) REFERENCES bookings (id) ON DELETE CASCADE
+	FOREIGN KEY(booking_id) REFERENCES bookings (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
-CREATE INDEX IF NOT EXISTS ix_tickets_booking_id ON tickets (booking_id);
 CREATE INDEX IF NOT EXISTS ix_tickets_trip_id ON tickets (trip_id);
+CREATE INDEX IF NOT EXISTS ix_tickets_booking_id ON tickets (booking_id);
 alter table public.tickets enable row level security;
 revoke all on public.tickets from anon, authenticated;

@@ -15,8 +15,7 @@ async def log_agent(s: AsyncSession, agent: str, action: str, *, trip_id=None, r
                     out: str | None = None, status: str = "ok", ms: int = 0) -> m.AgentEvent:
     ev = m.AgentEvent(agent=agent, action=action, trip_id=trip_id, request_id=request_id, input_summary=(inp or "")[:300],
                       output_summary=(out or "")[:300], status=status, duration_ms=ms)
-    s.add(ev)
-    await s.flush()
+    s.add(ev)  # flushed with the next batch; no extra round trip
     return ev
 
 
@@ -41,5 +40,4 @@ async def add_trip_event(s: AsyncSession, trip: m.Trip, type_: str, payload: dic
     trip.revision += 1
     ev = m.TripEvent(trip_id=trip.id, revision=trip.revision, type=type_, payload=payload or {})
     s.add(ev)
-    await s.flush()
     return ev

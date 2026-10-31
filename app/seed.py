@@ -141,6 +141,8 @@ async def seed() -> dict:
         s.add_all(rows)
         await ensure_demo_user(s)
         await s.commit()
+    from .scouts import clear_cache
+    clear_cache()
     return {"rows": len(rows)}
 
 

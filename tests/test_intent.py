@@ -30,6 +30,17 @@ def test_return_date_used_when_valid():
     assert p.return_date == "2026-11-13"
 
 
+def test_year_is_inferred_never_asked():
+    p = parse_intent("I want to go from Borivali to Dubai on 5th November", today=TODAY)
+    assert p.depart_date == "2026-11-05"
+    p = parse_intent("Delhi trip on October 5", today=TODAY)  # already passed this year -> next year
+    assert p.depart_date == "2027-10-05"
+    p = parse_intent("Connaught Place on 5 Nov, back on 8 Nov", today=TODAY)
+    assert (p.depart_date, p.return_date) == ("2026-11-05", "2026-11-08")
+    p = parse_intent("मुझे 5 नवंबर को कनॉट प्लेस जाना है", today=TODAY)
+    assert p.depart_date == "2026-11-05"
+
+
 def test_one_question_at_a_time():
     p = parse_intent("I want to go to Connaught Place", today=TODAY)
     assert missing_slots(p) == ["origin", "depart_date"]

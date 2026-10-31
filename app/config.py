@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     session_signing_secret: str = ""
     demo_admin_pin: str = "0000"
     sarvam_api_key: str = ""
+    plan_budget_s: float = 8.0  # planning time budget before the "shall I try again?" reply (R9)
     git_commit: str = "dev"
     render_git_commit: str = ""  # set automatically by Render
 

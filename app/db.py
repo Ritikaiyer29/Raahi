@@ -11,6 +11,16 @@ if _url.startswith("postgresql+asyncpg"):
     _connect_args = {"statement_cache_size": 0}
 
 engine = create_async_engine(_url, pool_pre_ping=True, connect_args=_connect_args)
+
+if _url.startswith("sqlite"):
+    from sqlalchemy import event
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _sqlite_fks(dbapi_conn, _):
+        # Enforce foreign keys locally too, so tests catch what Postgres would reject.
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

@@ -49,6 +49,37 @@ def _ordinal_day(t: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+MONTHS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+          "जनवरी": 1, "फरवरी": 2, "मार्च": 3, "अप्रैल": 4, "मई": 5, "जून": 6, "जुलाई": 7, "अगस्त": 8, "सितंबर": 9, "अक्टूबर": 10,
+          "नवंबर": 11, "नवम्बर": 11, "दिसंबर": 12}
+_MONTH_RE = "|".join(sorted((re.escape(k) for k in MONTHS), key=len, reverse=True))
+
+
+def _next_occurrence(day: int, month: int, today: date) -> date | None:
+    """'5th November' -> the next 5 Nov on or after today in IST. The year is never asked."""
+    for year in (today.year, today.year + 1):
+        try:
+            d = date(year, month, day)
+        except ValueError:
+            return None
+        if d >= today:
+            return d
+    return None
+
+
+def _dates_with_month(t: str, today: date) -> list[date]:
+    found: list[tuple[int, date]] = []
+    for m in re.finditer(rf"(\d{{1,2}})(?:st|nd|rd|th)?\s*(?:of\s+)?({_MONTH_RE})[a-z]*", t):
+        d = _next_occurrence(int(m.group(1)), MONTHS[m.group(2)], today)
+        if d:
+            found.append((m.start(), d))
+    for m in re.finditer(rf"({_MONTH_RE})[a-z]*\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", t):
+        d = _next_occurrence(int(m.group(2)), MONTHS[m.group(1)], today)
+        if d and all(abs(pos - m.start()) > 3 for pos, _ in found):
+            found.append((m.start(), d))
+    return [d for _, d in sorted(found)]
+
+
 def parse_intent(text: str, today: date | None = None, previous: ParsedRequest | None = None) -> ParsedRequest:
     today = today or today_ist()
     t = text.translate(DEVANAGARI_DIGITS).lower().replace("’", "'")
@@ -68,7 +99,10 @@ def parse_intent(text: str, today: date | None = None, previous: ParsedRequest |
         out.destination = None
 
     # depart date
-    if re.search(r"\b(day after tomorrow|parso)\b|परसों", t):
+    dated = _dates_with_month(t, today)
+    if dated:
+        out.depart_date = dated[0].isoformat()
+    elif re.search(r"\b(day after tomorrow|parso)\b|परसों", t):
         out.depart_date = (today + timedelta(days=2)).isoformat()
     elif re.search(r"\b(tomorrow|kal)\b|कल", t):
         out.depart_date = (today + timedelta(days=1)).isoformat()
@@ -76,7 +110,9 @@ def parse_intent(text: str, today: date | None = None, previous: ParsedRequest |
         out.depart_date = today.isoformat()
 
     # return date: "back on the 24th" - if that date is not after departure, use depart + offset (demo-configurable)
-    if re.search(r"\b(back|return|wapas|vapas)\b|वापस", t) and out.depart_date:
+    if len(dated) > 1 and dated[1] > dated[0]:
+        out.return_date = dated[1].isoformat()
+    elif re.search(r"\b(back|return|wapas|vapas)\b|वापस", t) and out.depart_date:
         day = _ordinal_day(t)
         dep = date.fromisoformat(out.depart_date)
         ret = None
@@ -120,6 +156,58 @@ def parse_intent(text: str, today: date | None = None, previous: ParsedRequest |
 
 def missing_slots(p: ParsedRequest) -> list[str]:
     return [k for k in REQUIRED if not getattr(p, k)]
+
+
+# Plan first (v2): only a missing destination blocks planning. Everything else gets a default shown as a chip.
+BLOCKING = ["destination"]
+DEFAULT_BASE = "Paytm Marol office"  # demo user's saved base; a real build reads it from the user's profile
+
+
+def blocking_slots(p: ParsedRequest) -> list[str]:
+    return [k for k in BLOCKING if not getattr(p, k)]
+
+
+def apply_defaults(p: ParsedRequest, today: date | None = None) -> list[str]:
+    """Fill origin and date with defaults. Returns the slots that were assumed rather than stated."""
+    today = today or today_ist()
+    assumed = []
+    if not p.origin:
+        p.origin = DEFAULT_BASE
+        assumed.append("origin")
+    if not p.depart_date:
+        p.depart_date = (today + timedelta(days=1)).isoformat()
+        assumed.append("depart_date")
+    return assumed
+
+
+PRIORITY_LABELS = {"economical": ("Cheapest", "सबसे सस्ता"), "fastest": ("Fastest", "सबसे तेज़"), "comfort": ("Most comfortable", "सबसे आरामदायक")}
+
+
+def assumptions(p: ParsedRequest, assumed: list[str]) -> list[dict]:
+    """Editable chips. Stated values are chips too, so every default and choice can be changed in one tap."""
+    def chip(slot, value, en, hi, was_assumed=True):
+        return dict(slot=slot, value=value, label_en=en, label_hi=hi, editable=True, assumed=was_assumed)
+
+    out = []
+    if p.origin:
+        out.append(chip("origin", p.origin, f"From {p.origin}", f"{p.origin} से", "origin" in assumed))
+    if p.depart_date:
+        d = date.fromisoformat(p.depart_date)
+        out.append(chip("depart_date", p.depart_date, f"{d:%a %d %b}", f"{d:%d/%m}", "depart_date" in assumed))
+    out.append(chip("party_size", p.party_size, f"{p.party_size} traveller" + ("s" if p.party_size > 1 else ""), f"{p.party_size} यात्री",
+                    p.party_size == 1))
+    en, hi = PRIORITY_LABELS.get(p.priority, PRIORITY_LABELS["economical"])
+    out.append(chip("priority", p.priority, en, hi))
+    out.append(chip("cabin", "economy", "Economy", "इकॉनमी"))
+    if p.return_date:
+        r = date.fromisoformat(p.return_date)
+        out.append(chip("return_date", p.return_date, f"Return {r:%a %d %b}", f"वापसी {r:%d/%m}", False))
+    else:
+        out.append(chip("return_date", None, "One-way", "एक तरफ़ा"))
+    out.append(chip("arrive_by", p.arrive_by, f"Arrive by {p.arrive_by or CONFIG.default_arrive_by_lunch}",
+                    f"{p.arrive_by or CONFIG.default_arrive_by_lunch} तक पहुँचें", p.arrive_by is None))
+    out.append(chip("baggage", "cabin_only", "Cabin bag only", "सिर्फ़ केबिन बैग"))
+    return out
 
 
 QUESTIONS = {

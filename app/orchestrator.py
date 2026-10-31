@@ -1,5 +1,6 @@
 """Concierge + Planner orchestration: one chat turn in, persisted state and a reply out.
 The LLM may propose slots (docs/LLM.md); the backend validates everything and owns the truth."""
+import asyncio
 import random
 import uuid
 from datetime import date
@@ -9,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models as m
 from .domain import Request
-from .events import add_trip_event, agent_step
-from .intent import ParsedRequest, missing_slots, next_question, parse_intent
+from .events import add_trip_event, agent_step, log_agent
+from .intent import ParsedRequest, apply_defaults, assumptions, blocking_slots, next_question, parse_intent
 from .planner import Candidate, PlanSet, explanations, plan_trip
 from .scouts import find_place, load_inventory
 from .timeutil import hhmm, ist
@@ -29,19 +30,25 @@ async def get_or_create_conversation(s: AsyncSession, conversation_id: uuid.UUID
         return conv
     user = (await s.execute(select(m.User).where(m.User.name == "Anika"))).scalars().first()
     if not user:
-        user = m.User(name="Anika", preferred_language="en")
+        user = m.User(id=uuid.uuid4(), name="Anika", preferred_language="en")
         s.add(user)
-        await s.flush()
-    conv = m.Conversation(user_id=user.id, session_code=f"{random.randint(1000, 9999)}")
+    code = f"{random.randint(1000, 9999)}"
+    while (await s.execute(select(m.Conversation.id).where(m.Conversation.session_code == code))).first():
+        code = f"{random.randint(1000, 9999)}"
+    conv = m.Conversation(id=uuid.uuid4(), user_id=user.id, session_code=code)
     s.add(conv)
-    await s.flush()
     return conv
 
 
 def _to_parsed(r: m.TripRequest) -> ParsedRequest:
     return ParsedRequest(origin=r.origin, destination=r.destination, depart_date=r.depart_date, return_date=r.return_date, party_size=r.party_size,
                          priority=r.priority, time_preference=r.time_preference, arrive_by=r.arrive_by, budget=r.budget,
-                         services=list(r.requested_services or []))
+                         services=list(r.requested_services or []), language=_last_lang(r))
+
+
+def _last_lang(r: m.TripRequest) -> str:
+    from .intent import detect_language
+    return detect_language(r.raw_text or "")
 
 
 def _to_domain(p: ParsedRequest) -> Request:
@@ -86,10 +93,9 @@ async def persist_plans(s: AsyncSession, request_row: m.TripRequest, trip: m.Tri
         en, hi = explanations(c, req, pick=(rank == 1 and status == "proposed"))
         if status == "rejected":
             en, hi = f"Rejected: {c.plan.label}. {c.rejection.message_en}", f"अस्वीकृत: {c.plan.label}। {c.rejection.message_hi}"
-        plan = m.TripPlan(request_id=request_row.id, trip_id=trip.id, rank=rank, status=status, total_price=c.plan.total_price,
+        plan = m.TripPlan(id=uuid.uuid4(), request_id=request_row.id, trip_id=trip.id, rank=rank, status=status, total_price=c.plan.total_price,
                           total_duration=c.out_duration, explanation_en=en, explanation_hi=hi, is_pick=(rank == 1 and status == "proposed"))
         s.add(plan)
-        await s.flush()
         for l in c.plan.legs:
             s.add(m.PlanLeg(plan_id=plan.id, seq=l.seq, direction=l.direction, mode=l.mode, from_label=l.from_label, to_label=l.to_label,
                             start_at=l.start, end_at=l.end, price=l.price, details=l.details))
@@ -97,8 +103,7 @@ async def persist_plans(s: AsyncSession, request_row: m.TripRequest, trip: m.Tri
             s.add(m.CheckResultRow(plan_id=plan.id, rule_id=r.rule_id, passed=r.passed, severity=r.severity, message_en=r.message_en,
                                    message_hi=r.message_hi, evidence=r.evidence))
         rows.append(plan)
-    await s.flush()
-    return rows
+    return rows  # written in one batch at commit
 
 
 async def run_planning(s: AsyncSession, conv: m.Conversation, parsed: ParsedRequest, request_row: m.TripRequest) -> dict:
@@ -120,9 +125,8 @@ async def run_planning(s: AsyncSession, conv: m.Conversation, parsed: ParsedRequ
 
     trip = await s.get(m.Trip, conv.trip_id) if conv.trip_id else None
     if not trip:
-        trip = m.Trip(user_id=conv.user_id, request_id=request_row.id, status="planned", revision=0)
+        trip = m.Trip(id=uuid.uuid4(), user_id=conv.user_id, request_id=request_row.id, status="planned", revision=0)
         s.add(trip)
-        await s.flush()
         conv.trip_id = trip.id
     trip.request_id = request_row.id
     if ps.triage == "ESCALATE":
@@ -138,35 +142,96 @@ async def run_planning(s: AsyncSession, conv: m.Conversation, parsed: ParsedRequ
                 rejected=[dict(label=c.plan.label, rule_id=c.rejection.rule_id, message_en=c.rejection.message_en) for c in ps.rejected])
 
 
-async def handle_chat(s: AsyncSession, text: str, conversation_id: uuid.UUID | None = None, channel: str = "chat") -> dict:
-    conv = await get_or_create_conversation(s, conversation_id)
-    async with agent_step(s, "Concierge", "understand_request", inp=text) as st:
+PLAN_BUDGET_S = __import__("app.config", fromlist=["get_settings"]).get_settings().plan_budget_s
+OVERRIDABLE = {"origin", "destination", "depart_date", "return_date", "party_size", "priority", "arrive_by", "budget"}
+
+
+def apply_overrides(p: ParsedRequest, overrides: dict | None) -> list[str]:
+    """Slots set explicitly by a chip edit or the voice agent. Validated here, never trusted blindly."""
+    changed = []
+    for k, v in (overrides or {}).items():
+        if k not in OVERRIDABLE:
+            continue
+        if k in ("depart_date", "return_date") and v:
+            v = date.fromisoformat(str(v)).isoformat()
+        if k == "priority" and v not in ("economical", "fastest", "comfort"):
+            continue
+        if k == "party_size":
+            v = max(1, min(9, int(v)))
+        setattr(p, k, v)
+        changed.append(k)
+    return changed
+
+
+async def converse(s: AsyncSession, conv: m.Conversation, text: str | None, overrides: dict | None = None, channel: str = "chat") -> dict:
+    """One Concierge turn: parse (or apply chip edits), fill defaults, plan within the budget, persist, reply.
+    Shared by /api/chat, assumption-chip edits and the Sarvam tools."""
+    async with agent_step(s, "Concierge", "understand_request" if text else "edit_assumption", inp=text or str(overrides)) as st:
         request_row = await s.get(m.TripRequest, conv.trip_request_id) if conv.trip_request_id else None
         previous = _to_parsed(request_row) if request_row else None
-        parsed = parse_intent(text, previous=previous)
-        missing = missing_slots(parsed)
-        st["out"] = f"slots filled, missing: {missing or 'none'}"
+        parsed = parse_intent(text, previous=previous) if text else (previous or ParsedRequest())
+        if not text and previous is None:
+            parsed.language = "en"
+        explicit = apply_overrides(parsed, overrides)
+        prior_assumed = [a for a in (request_row.assumed_slots or [])] if request_row else []
+        assumed = [a for a in prior_assumed if a not in explicit and getattr(parsed, a) == getattr(previous, a, None)]
+        missing = blocking_slots(parsed)
+        if not missing:
+            assumed = sorted(set(assumed + apply_defaults(parsed)))
+        st["out"] = f"missing: {missing or 'none'}; assumed: {assumed or 'none'}"
     if not request_row:
-        request_row = m.TripRequest(user_id=conv.user_id)
+        request_row = m.TripRequest(id=uuid.uuid4(), user_id=conv.user_id)
         s.add(request_row)
     for k, v in slots_dict(parsed).items():
         setattr(request_row, k, v)
-    request_row.requested_services, request_row.raw_text, request_row.missing_slots = parsed.services, text, missing
-    await s.flush()
+    request_row.requested_services, request_row.missing_slots, request_row.assumed_slots = parsed.services, missing, assumed
+    if text:
+        request_row.raw_text = text
     conv.trip_request_id = request_row.id
-    s.add(m.Message(conversation_id=conv.id, role="user", text=text, language=parsed.language, channel=channel))
+    if text:
+        s.add(m.Message(conversation_id=conv.id, role="user", text=text, language=parsed.language, channel=channel))
+    await s.commit()  # the request is saved even if planning times out
 
-    result: dict = {}
     if missing:
         en, hi = next_question(missing)
-        result = dict(status="need_info", say_en=en, say_hi=hi, triage="ASK")
+        result = dict(status="need_info", say_en=en, say_hi=hi, triage="ASK", next_action="ask_user")
     else:
-        result = await run_planning(s, conv, parsed, request_row)
+        conv_id, request_id = conv.id, request_row.id
+        try:
+            result = await asyncio.wait_for(run_planning(s, conv, parsed, request_row), PLAN_BUDGET_S)
+            result["next_action"] = {"plan_ready": "read_back_then_send_for_approval", "escalate": "request_human_help"}.get(result["status"], "read_back")
+        except asyncio.TimeoutError:
+            return await _timed_out(s, conv_id, request_id, parsed)
     reply = result["say_hi"] if parsed.language == "hi" else result["say_en"]
     s.add(m.Message(conversation_id=conv.id, role="assistant", text=reply, language=parsed.language, channel=channel))
     trip = result.get("trip")
     await s.commit()
     return dict(conversation_id=str(conv.id), session_code=conv.session_code, reply=reply, reply_en=result["say_en"], reply_hi=result["say_hi"],
-                language=parsed.language, status=result["status"], triage=result.get("triage"), slots=slots_dict(parsed), missing_slots=missing,
+                language=parsed.language, status=result["status"], triage=result.get("triage"), next_action=result.get("next_action"),
+                slots=slots_dict(parsed), missing_slots=missing, assumptions=assumptions(parsed, assumed) if not missing else [],
                 trip_id=str(trip.id) if trip else (str(conv.trip_id) if conv.trip_id else None), revision=trip.revision if trip else None,
                 plan_ids=[str(p.id) for p in result.get("plans", [])], rejected=result.get("rejected", []))
+
+
+async def _timed_out(s: AsyncSession, conv_id: uuid.UUID, request_id: uuid.UUID, parsed: ParsedRequest) -> dict:
+    """Planning ran past the budget. The cancelled session may be unusable, so record the timeout on a fresh one."""
+    try:
+        await s.rollback()
+    except Exception:
+        pass
+    from .db import SessionLocal
+    async with SessionLocal() as s2:
+        await log_agent(s2, "Planner", "build_door_to_door", request_id=request_id, out=f"no plan within {PLAN_BUDGET_S:.0f} s",
+                        status="timeout", ms=int(PLAN_BUDGET_S * 1000))
+        conv = await s2.get(m.Conversation, conv_id)
+        en, hi = "Planning is taking longer than usual. Shall I try again?", "प्लान बनाने में सामान्य से ज़्यादा समय लग रहा है। क्या मैं फिर से कोशिश करूँ?"
+        s2.add(m.Message(conversation_id=conv_id, role="assistant", text=hi if parsed.language == "hi" else en, language=parsed.language))
+        await s2.commit()
+        return dict(conversation_id=str(conv_id), session_code=conv.session_code, reply=hi if parsed.language == "hi" else en, reply_en=en,
+                    reply_hi=hi, language=parsed.language, status="timeout", triage=None, next_action="offer_retry", slots=slots_dict(parsed),
+                    missing_slots=[], assumptions=[], trip_id=str(conv.trip_id) if conv.trip_id else None, revision=None, plan_ids=[], rejected=[])
+
+
+async def handle_chat(s: AsyncSession, text: str, conversation_id: uuid.UUID | None = None, channel: str = "chat") -> dict:
+    conv = await get_or_create_conversation(s, conversation_id)
+    return await converse(s, conv, text, channel=channel)

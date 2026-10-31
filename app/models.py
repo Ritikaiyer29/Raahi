@@ -21,7 +21,8 @@ class Row:
 
 
 def uref(table: str, **kw):
-    return mapped_column(sa.Uuid, sa.ForeignKey(f"{table}.id", ondelete="CASCADE"), **kw)
+    # Deferred: checked at commit, so one batched flush may insert children before parents (no ORM relationships here).
+    return mapped_column(sa.Uuid, sa.ForeignKey(f"{table}.id", ondelete="CASCADE", deferrable=True, initially="DEFERRED"), **kw)
 
 
 def S(n=None, **kw):
@@ -215,6 +216,8 @@ class TripRequest(Row, Base):
     requested_services: Mapped[list] = mapped_column(JSONType, default=list)
     raw_text: Mapped[str] = S(nullable=True)
     missing_slots: Mapped[list] = mapped_column(JSONType, default=list)
+    assumed_slots: Mapped[list] = mapped_column(JSONType, default=list)  # filled by defaults, shown as chips
+    plan_type: Mapped[str] = S(12, default="intercity")  # intercity / commute / day_plan
 
 
 class Trip(Row, Base):
@@ -222,6 +225,7 @@ class Trip(Row, Base):
     user_id: Mapped[uuid.UUID] = uref("users")
     request_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, nullable=True)
     status: Mapped[str] = S(16, default="planned")
+    plan_type: Mapped[str] = S(12, default="intercity")
     revision: Mapped[int] = mapped_column(sa.Integer, default=0)
     selected_plan_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, nullable=True)
 
@@ -268,7 +272,7 @@ class Cart(Row, Base):
     __tablename__ = "carts"
     trip_id: Mapped[uuid.UUID] = uref("trips", index=True)
     plan_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
-    status: Mapped[str] = S(12, default="open")
+    status: Mapped[str] = S(20, default="open")  # open / awaiting_approval / superseded / booked
     total: Mapped[int] = mapped_column(sa.Integer, default=0)
 
 
@@ -378,7 +382,10 @@ def _sqlite_seq(model):
     @sa.event.listens_for(model, "before_insert")
     def _assign(mapper, connection, target):
         if connection.dialect.name == "sqlite" and target.seq is None:
-            target.seq = connection.execute(sa.select(sa.func.coalesce(sa.func.max(model.seq), 0) + 1)).scalar()
+            db_max = connection.execute(sa.select(sa.func.coalesce(sa.func.max(model.seq), 0))).scalar()
+            key = f"seq:{model.__tablename__}"
+            target.seq = max(db_max, connection.info.get(key, 0)) + 1  # rows in one batch are not in the table yet
+            connection.info[key] = target.seq
 
 
 _sqlite_seq(TripEvent)

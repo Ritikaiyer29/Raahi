@@ -14,6 +14,21 @@ from app import seed  # noqa: E402
 from app.db import engine  # noqa: E402
 
 
+import sqlalchemy as sa  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+
+
+@sa.event.listens_for(Session, "before_flush")
+def _enforce_varchar_lengths(session, *_):
+    """SQLite ignores VARCHAR(n); Postgres rejects overflows. Fail the test the way Postgres would."""
+    for obj in list(session.new) + list(session.dirty):
+        for col in obj.__table__.columns:
+            n = getattr(col.type, "length", None)
+            v = getattr(obj, col.key, None)
+            if n and isinstance(v, str) and len(v) > n:
+                raise AssertionError(f"{obj.__tablename__}.{col.key} = {v!r} exceeds VARCHAR({n})")
+
+
 @pytest_asyncio.fixture(loop_scope="function", autouse=True)
 async def fresh_db():
     async with engine.begin() as conn:

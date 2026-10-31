@@ -62,7 +62,7 @@ def _metro_leg(inv, seq, direction, a_code, b_code, start, party, **extra) -> Le
 def _flight_leg(seq, direction, f, party) -> Leg:
     return Leg(seq, direction, "flight", f"{f['from_airport']} {f['from_terminal']}", f"{f['to_airport']} {f['to_terminal']}", f["dep"],
                f["arr"], f["fare"] * party,
-               dict(ref_id=f["id"], search_price=f["fare"] * party, flight_no=f["flight_no"], airline=f["airline"], budget=f["budget"],
+               dict(ref_id=f["id"], search_price=f["fare"] * party, qty=party, flight_no=f["flight_no"], airline=f["airline"], budget=f["budget"],
                     from_terminal=f["from_terminal"], to_terminal=f["to_terminal"], seats_left=f["seats"], baggage=f["baggage"]))
 
 
@@ -90,7 +90,7 @@ def build_outbound(inv: Inventory, req: Request, f: dict, hotel: dict | None, ni
         legs.append(Leg(6, "outbound", "hotel", d["name"], hotel["name"], check_in,
                         at(date.fromisoformat(req.return_date), hotel["check_out"]) if req.return_date else check_in + timedelta(days=1),
                         hotel["price"] * nights * math.ceil(party / 2),
-                        dict(ref_id=hotel["id"], search_price=hotel["price"] * nights * math.ceil(party / 2), hotel=hotel["name"], area=hotel["area"],
+                        dict(ref_id=hotel["id"], search_price=hotel["price"] * nights * math.ceil(party / 2), qty=nights * math.ceil(party / 2), hotel=hotel["name"], area=hotel["area"],
                              nights=nights, check_in_time=hotel["check_in"], check_out_time=hotel["check_out"], partner=hotel["partner"],
                              price_per_night=hotel["price"])))
     return legs
@@ -186,14 +186,12 @@ def plan_trip(inv: Inventory, req: Request, ctx: Context | None = None) -> PlanS
 
     if not valid:
         return PlanSet(valid, rejected, "ESCALATE")
-    q = q_hi = None
+    # Plan first (v2): a near-tie is not a question; both options are shown and the cheaper is Raahi's pick.
+    # ASK is reserved for warnings on the picked plan (waitlist, price drift), which surface at checkout.
     top = valid[0]
     if top.asks:
-        q, q_hi = top.asks[0].message_en, top.asks[0].message_hi
-    elif len(valid) > 1 and abs(valid[1].plan.total_price - top.plan.total_price) / top.plan.total_price * 100 <= CONFIG.near_tie_pct:
-        q = f"Two options are within {CONFIG.near_tie_pct:.0f}% of each other. Do you prefer {top.plan.label} or {valid[1].plan.label}?"
-        q_hi = f"दो विकल्प लगभग बराबर हैं: {top.plan.label} या {valid[1].plan.label}?"
-    return PlanSet(valid, rejected, "ASK" if q else "AUTO", q, q_hi)
+        return PlanSet(valid, rejected, "ASK", top.asks[0].message_en, top.asks[0].message_hi)
+    return PlanSet(valid, rejected, "AUTO")
 
 
 def explanations(c: Candidate, req: Request, pick: bool) -> tuple[str, str]:
