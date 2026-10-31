@@ -90,6 +90,9 @@ async def healthz():
     host = urlparse(settings.async_database_url).hostname if settings.database_url else "sqlite"
     body = {"status": "ok" if db_ok else "degraded", "db": db_ok, "db_error": err, "db_host": host, "db_roundtrip_ms": db_ms,
             "version": __version__, "commit": settings.commit}
+    from .agent_tools import LAST_AUTH_FAILURE
+    if LAST_AUTH_FAILURE:
+        body["last_tool_auth_failure"] = dict(LAST_AUTH_FAILURE)
     if not db_ok and any(k in (err or "") for k in ("authentication", "ECIRCUITBREAKER", "password", "Tenant or user")):
         f["at"], f["body"] = time.monotonic(), body
     else:

@@ -87,3 +87,13 @@ async def test_addons_accepted_as_plain_text_from_sarvam():
         assert a["status"] == "awaiting_approval" and a["ok"]
         snap = (await c.get(f"/api/trips/{r['trip_id']}")).json()
         assert {"CANCEL99", "INSURANCE149"} <= {i["ref_id"] for i in snap["cart"]["items"]}
+
+
+async def test_secret_formatting_slips_are_tolerated():
+    async with client() as c:
+        for h in ("Bearer Bearer test-secret", "Bearer  test-secret ", 'Bearer "test-secret"', "bearer test-secret"):
+            r = await c.post("/api/agent/tools/get_session_context", json={"session_code": "0000"}, headers={"Authorization": h})
+            assert r.status_code == 200, h
+        await c.post("/api/agent/tools/get_session_context", json={}, headers={"Authorization": "Bearer nope"})
+        f = (await c.get("/healthz")).json()["last_tool_auth_failure"]
+        assert f["token_len"] == 4 and f["expected_len"] == len("test-secret") and "nope" not in str(f)

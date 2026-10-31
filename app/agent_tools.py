@@ -27,12 +27,27 @@ from .support import open_case
 from .timeutil import hhmm
 
 
+# Last auth failure, as lengths and flags only (never the value), shown on /healthz to debug the Sarvam credential.
+LAST_AUTH_FAILURE: dict = {}
+
+
+def _clean_token(value: str) -> tuple[str, int]:
+    """Strip whitespace, quotes and any number of 'Bearer ' prefixes (a secret saved as 'Bearer xyz' is sent twice)."""
+    v, prefixes = value.strip().strip('"').strip("'").strip(), 0
+    while v.lower().startswith("bearer "):
+        v, prefixes = v[7:].strip(), prefixes + 1
+    return v, prefixes
+
+
 def require_tool_secret(authorization: str | None = Header(None)):
-    secret = get_settings().agent_tool_secret
+    secret, _ = _clean_token(get_settings().agent_tool_secret or "")
     if not secret:
         raise HTTPException(503, "Tool secret not configured on the server.")
-    token = (authorization or "").removeprefix("Bearer ").strip()
+    token, prefixes = _clean_token(authorization or "")
     if not hmac.compare_digest(token.encode(), secret.encode()):
+        LAST_AUTH_FAILURE.update(at=__import__("time").strftime("%H:%M:%S"), header_present=bool(authorization),
+                                 bearer_prefixes=prefixes, token_len=len(token), expected_len=len(secret),
+                                 same_first_char=bool(token) and token[:1] == secret[:1])
         raise HTTPException(401, "Invalid or missing bearer token.")
 
 
