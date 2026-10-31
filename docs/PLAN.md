@@ -36,9 +36,10 @@ Status: [ ] todo · [~] in progress · [x] done. OPTIONAL items are cut first.
 - [ ] `plan_type` on `trip_requests`/`trips`; plan-type plug-in interface
 - [ ] Commute plan type + `commute_buffer` rule, "leave by" time
 - [x] Select plan, cart, add-ons, approval (idempotent), atomic mock booking, tickets with QR payloads
-- [ ] SSE `/api/trips/{id}/events` + polling fallback
+- [x] Live session stream `/api/conversations/{id}/stream` (full state on every change, heartbeat) + polling fallback
 - [ ] Guardian loop, `/api/demo/inject-delay`, alert with 3 options, choice applied ("Raahi noticed your flight is delayed")
-- [ ] UI: Home tiles (+ My Commute, Plan my day), chat with assumption chips, plan options + rejected card, checkout sheet, wallet, alert sheet, agent activity panel (only agents that ran)
+- [x] UI: Home with Raahi code + call button, service tiles + inventory lists, chat (voice turns marked), editable assumption chips, plan cards with door-to-door timeline and checks, rejected card, auto-opening approval sheet with add-ons, wallet with QR tickets, live agent activity panel, EN/हिंदी toggle
+- [ ] Guardian alert sheet
 - [ ] `/demo` panel (PIN): reset, re-seed, inject delay, replay demo sentence
 
 ## 5. Sarvam phone agent (v2 §4)

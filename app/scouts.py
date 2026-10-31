@@ -24,7 +24,8 @@ async def _cached(key, loader):
     if hit and time.monotonic() - hit[0] < CACHE_TTL_S:
         return hit[1]
     value = await loader()
-    _cache[key] = (time.monotonic(), value)
+    if value and (not isinstance(value, tuple) or all(value)):  # never cache an empty result (e.g. before seeding)
+        _cache[key] = (time.monotonic(), value)
     return value
 
 

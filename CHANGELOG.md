@@ -20,3 +20,9 @@
 - Performance: inventory cache, startup warm-up, batched writes (39 → 16 queries per plan); `/healthz` reports `db_roundtrip_ms`
 - Postgres fixes found by a live run: deferred foreign keys (0003), `carts.status` length (0004); tests now enforce FKs and VARCHAR lengths
 - Migrations 0002–0004 applied to Supabase; 26 tests
+
+## Frontend + realtime
+- Sessions: the app opens one and shows its 4-digit Raahi code; phone calls and chat attach to it (`?session=<code>` opens one elsewhere)
+- `/api/conversations/{id}/stream`: SSE sending the whole session state on every change (messages, chips, plans, cart, tickets, agent events), heartbeat 15 s; polling fallback
+- React app: Home, Trip (chat, chips, plan cards with timeline and checks, rejected card), auto-opening approval sheet, Wallet with QR tickets, live Agent activity panel, EN/हिंदी
+- Sarvam agent v1 deployed on +91 80642 69831; call script in docs/DEMO_DAY.md

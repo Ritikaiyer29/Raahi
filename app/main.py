@@ -14,7 +14,7 @@ from sqlalchemy import text
 from . import __version__
 from .config import get_settings
 from .agent_tools import router as tools_router
-from .api import chat as chat_api, inventory as inventory_api
+from .api import chat as chat_api, inventory as inventory_api, session as session_api
 from .db import engine
 
 settings = get_settings()
@@ -55,6 +55,7 @@ app = FastAPI(title="Raahi", version=__version__, lifespan=lifespan)
 app.include_router(chat_api.router)
 app.include_router(inventory_api.router)
 app.include_router(tools_router)
+app.include_router(session_api.router)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 

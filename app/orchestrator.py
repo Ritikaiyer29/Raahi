@@ -117,7 +117,7 @@ async def persist_plans(s: AsyncSession, request_row: m.TripRequest, trip: m.Tri
 async def run_planning(s: AsyncSession, conv: m.Conversation, parsed: ParsedRequest, request_row: m.TripRequest) -> dict:
     """Scouts -> Planner -> Checker -> persist. Returns reply fields. Used by chat and by the Sarvam plan_trip tool."""
     req = _to_domain(parsed)
-    async with agent_step(s, "Scouts", "search_inventory", request_id=request_row.id, inp=f"{req.origin} → {req.destination} {req.depart_date}") as st:
+    async with agent_step(s, "Scouts", "search_inventory", request_id=request_row.id, trip_id=conv.trip_id, inp=f"{req.origin} → {req.destination} {req.depart_date}") as st:
         o, d = await find_place(s, req.origin), await find_place(s, req.destination)
         if not o or not d:
             st["out"] = "place not in Paytm catalogue"
@@ -125,10 +125,10 @@ async def run_planning(s: AsyncSession, conv: m.Conversation, parsed: ParsedRequ
                         "Try Paytm's Marol office to Connaught Place.", say_hi="इस डेमो में मैं सिर्फ़ Paytm कैटलॉग के स्थानों के बीच प्लान बना सकता हूँ।")
         inv = await load_inventory(s, o, d, date.fromisoformat(req.depart_date), date.fromisoformat(req.return_date) if req.return_date else None)
         st["out"] = f"{len(inv.flights_out)} outbound flights, {len(inv.flights_ret)} return, {len(inv.hotels)} hotels"
-    async with agent_step(s, "Planner", "build_door_to_door", request_id=request_row.id, inp=f"priority={req.priority}") as st:
+    async with agent_step(s, "Planner", "build_door_to_door", request_id=request_row.id, trip_id=conv.trip_id, inp=f"priority={req.priority}") as st:
         ps = plan_trip(inv, req)
         st["out"] = f"{len(ps.valid)} candidate plans, triage {ps.triage}"
-    async with agent_step(s, "Checker", "validate_plans", request_id=request_row.id, inp=f"{len(ps.valid) + len(ps.rejected)} plans") as st:
+    async with agent_step(s, "Checker", "validate_plans", request_id=request_row.id, trip_id=conv.trip_id, inp=f"{len(ps.valid) + len(ps.rejected)} plans") as st:
         st["out"] = f"{len(ps.valid)} passed, {len(ps.rejected)} rejected" + (f" ({ps.rejected[0].rejection.rule_id})" if ps.rejected else "")
 
     trip = await s.get(m.Trip, conv.trip_id) if conv.trip_id else None
@@ -174,7 +174,9 @@ def apply_overrides(p: ParsedRequest, overrides: dict | None) -> list[str]:
 async def converse(s: AsyncSession, conv: m.Conversation, text: str | None, overrides: dict | None = None, channel: str = "chat") -> dict:
     """One Concierge turn: parse (or apply chip edits), fill defaults, plan within the budget, persist, reply.
     Shared by /api/chat, assumption-chip edits and the Sarvam tools."""
-    async with agent_step(s, "Concierge", "understand_request" if text else "edit_assumption", inp=text or str(overrides)) as st:
+    request_id = conv.trip_request_id or uuid.uuid4()
+    async with agent_step(s, "Concierge", "understand_request" if text else "edit_assumption", inp=text or str(overrides),
+                          request_id=request_id, trip_id=conv.trip_id) as st:
         request_row = await s.get(m.TripRequest, conv.trip_request_id) if conv.trip_request_id else None
         previous = _to_parsed(request_row) if request_row else None
         parsed = parse_intent(text, previous=previous) if text else (previous or ParsedRequest())
@@ -188,7 +190,7 @@ async def converse(s: AsyncSession, conv: m.Conversation, text: str | None, over
             assumed = sorted(set(assumed + apply_defaults(parsed)))
         st["out"] = f"missing: {missing or 'none'}; assumed: {assumed or 'none'}"
     if not request_row:
-        request_row = m.TripRequest(id=uuid.uuid4(), user_id=conv.user_id)
+        request_row = m.TripRequest(id=request_id, user_id=conv.user_id)
         s.add(request_row)
     for k, v in slots_dict(parsed).items():
         setattr(request_row, k, v)

@@ -4,3 +4,6 @@
 
 body { @apply bg-surface text-navy font-sans antialiased; margin: 0; }
 .card { @apply bg-white rounded-card shadow-card; }
+:focus-visible { outline: 2px solid #00BAF2; outline-offset: 2px; }
+@keyframes fadein { from { opacity: 0.4; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

@@ -140,7 +140,8 @@ async def _conv(s: AsyncSession, code: str | None, create: bool = False) -> m.Co
 
 
 async def _log(s, name, conv, out, status="ok"):
-    await log_agent(s, "Concierge", f"voice_tool:{name}", trip_id=conv.trip_id if conv else None, out=out, status=status)
+    await log_agent(s, "Concierge", f"voice_tool:{name}", trip_id=conv.trip_id if conv else None,
+                    request_id=conv.trip_request_id if conv else None, out=out, status=status)
     await s.commit()
 
 
