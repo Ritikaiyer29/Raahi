@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raahi agent team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Lato:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Raahi: Paytm navy and sky; amber marks the human; dashed amber marks "designed, not built yet" */
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --ink: #12233b;
+  --muted: #56667d;
+  --line: #d5dde8;
+  --navy: #0e2136;
+  --sky: #0aa7dc;
+  --amber: #b86e00;
+  --good: #14805e;
+  --font-display: "DM Serif Display", Georgia, serif;
+  --font-body: "Lato", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1626; --panel: #12223a; --ink: #e8eef7; --muted: #a2b2c8; --line: #2a3d58; --navy: #050d18; --sky: #3cc6f2; --amber: #f2a93b; --good: #43c59a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1626; --panel: #12223a; --ink: #e8eef7; --muted: #a2b2c8; --line: #2a3d58; --navy: #050d18; --sky: #3cc6f2; --amber: #f2a93b; --good: #43c59a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.55; font-size: 16px; }
+.hero { background: var(--navy); color: #eef4fb; }
+.hero-in, main { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+.hero-in { padding-top: 48px; padding-bottom: 40px; display: grid; gap: 14px; }
+.eyebrow { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: #5fd0f5; font-weight: 700; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.4rem, 5vw, 3.6rem); line-height: 1.05; margin: 0; text-wrap: balance; }
+h1 .hi { color: #5fd0f5; }
+.hero p { margin: 0; max-width: 70ch; color: #c9d6e6; font-size: 1.08rem; }
+.principle { font-family: var(--font-display); font-size: 1.35rem; color: #fff; }
+.principle em { color: #f2b54c; font-style: normal; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 10px; }
+.stat { border: 1px solid rgba(255,255,255,.16); border-radius: 12px; padding: 12px 14px; }
+.stat b { display: block; font-size: 1.6rem; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.stat span { font-size: .85rem; color: #b7c6d8; }
+main { display: grid; gap: 48px; padding-top: 40px; padding-bottom: 64px; }
+section { display: grid; gap: 14px; }
+h2 { font-family: var(--font-display); font-weight: 400; font-size: 2rem; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 72ch; margin: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: .9rem; color: var(--muted); }
+.legend span { display: inline-flex; gap: 8px; align-items: center; }
+.pill { font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.live { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); }
+.pill.designed { border: 1.5px dashed var(--amber); color: var(--amber); }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; overflow-x: auto; }
+figure svg { display: block; width: 100%; min-width: 860px; height: auto; color: var(--ink); }
+figcaption { margin-top: 10px; color: var(--muted); font-size: .92rem; max-width: 85ch; }
+.phase { display: grid; gap: 12px; }
+.phase h3 { font-size: .8rem; letter-spacing: .16em; text-transform: uppercase; color: var(--sky); margin: 8px 0 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.card.designed { border: 1.5px dashed var(--amber); }
+.card header { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.card h4 { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem; margin: 0; line-height: 1.15; }
+.card .job { margin: 0; font-weight: 700; }
+dl { margin: 0; display: grid; grid-template-columns: 88px 1fr; gap: 6px 10px; font-size: .93rem; }
+dt { color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 900; padding-top: 3px; }
+dd { margin: 0; }
+.never { color: var(--amber); }
+.brain { font-family: var(--font-mono); font-size: .78rem; color: var(--muted); }
+.panelrow { font-family: var(--font-mono); font-size: .8rem; background: var(--bg); border-radius: 8px; padding: 6px 9px; color: var(--ink); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: .94rem; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--bg); font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+td code { font-family: var(--font-mono); font-size: .85em; }
+.consent { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.consent div { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--amber); border-radius: 12px; padding: 14px; }
+.consent b { display: block; margin-bottom: 4px; }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.timeline li { display: grid; grid-template-columns: 92px 18px 1fr; gap: 12px; }
+.timeline time { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); padding-top: 2px; text-align: right; }
+.timeline .dot { position: relative; }
+.timeline .dot::before { content: ""; position: absolute; left: 4px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--sky); }
+.timeline .dot::after { content: ""; position: absolute; left: 8px; top: 18px; bottom: -6px; width: 2px; background: var(--line); }
+.timeline li:last-child .dot::after { display: none; }
+.timeline p { margin: 0 0 16px; }
+.timeline .who { font-weight: 900; }
+.foot { color: var(--muted); font-size: .88rem; }
+@media (max-width: 520px) { dl { grid-template-columns: 1fr; } .timeline li { grid-template-columns: 64px 18px 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-in">
+    <p class="eyebrow">Raahi · Team Genesis51 · Track 3: Autonomous AI Teammates</p>
+    <h1>Raahi <span class="hi">राही</span>: the agent team behind one trip</h1>
+    <p>One sentence in. A checked, door-to-door trip out. One payment. And a team of agents that keeps looking after you after the booking, until you are home.</p>
+    <p class="principle">The model plans. Code checks. You pay once. <em>A human handles exceptions.</em></p>
+    <div class="stats" aria-label="Key numbers">
+      <div class="stat"><b>11</b><span>agent roles designed</span></div>
+      <div class="stat"><b>6</b><span>live in today's demo</span></div>
+      <div class="stat"><b>10</b><span>Checker rules, no AI</span></div>
+      <div class="stat"><b>9</b><span>voice tools on a real phone number</span></div>
+      <div class="stat"><b>≈1 s</b><span>to plan a trip, door to door</span></div>
+      <div class="stat"><b>37</b><span>automated tests passing</span></div>
+    </div>
+  </div>
+</header>
+
+<main>
+<section>
+  <h2>The whole trip, owned by one team</h2>
+  <p class="lede">Every agent has one job and hard limits. Six are live in the demo today. Five are designed and come next; they are marked so nobody mistakes a plan for a feature.</p>
+  <div class="legend"><span><span class="pill live">Live</span> running in the demo</span><span><span class="pill designed">Designed</span> specified, next to build</span></div>
+  <figure>
+    <svg viewBox="0 0 1120 520" role="img" aria-label="Agents across the trip: before you book, Concierge, Memory, Scouts, Stay Scout, Planner and Checker; booking, Checkout; after you book, Trip Guardian, Proactive Caller and Aftercare. Handoff to a human spans all three.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+      </defs>
+      <g font-family="Lato, sans-serif" fill="currentColor">
+        <!-- phase bands -->
+        <rect x="10" y="10" width="560" height="400" rx="16" fill="#0aa7dc" fill-opacity="0.06" stroke="currentColor" stroke-opacity="0.15"/>
+        <rect x="585" y="10" width="170" height="400" rx="16" fill="#0aa7dc" fill-opacity="0.10" stroke="currentColor" stroke-opacity="0.15"/>
+        <rect x="770" y="10" width="340" height="400" rx="16" fill="#b86e00" fill-opacity="0.06" stroke="currentColor" stroke-opacity="0.15"/>
+        <text x="30" y="40" font-size="13" font-weight="900" letter-spacing="2">BEFORE YOU BOOK</text>
+        <text x="603" y="40" font-size="13" font-weight="900" letter-spacing="2">BOOKING</text>
+        <text x="790" y="40" font-size="13" font-weight="900" letter-spacing="2">AFTER YOU BOOK, UNTIL HOME</text>
+
+        <!-- before: row 1 -->
+        <rect x="30" y="64" width="160" height="62" rx="12" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="110" y="92" text-anchor="middle" font-size="15" font-weight="900">Concierge</text>
+        <text x="110" y="111" text-anchor="middle" font-size="12" opacity=".75">talks, asks only gaps</text>
+        <rect x="30" y="160" width="160" height="62" rx="12" fill="none" stroke="#b86e00" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="110" y="188" text-anchor="middle" font-size="15" font-weight="900">Memory</text>
+        <text x="110" y="207" text-anchor="middle" font-size="12" opacity=".75">your yes-saved prefs</text>
+        <rect x="215" y="64" width="150" height="62" rx="12" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="290" y="92" text-anchor="middle" font-size="15" font-weight="900">Scouts</text>
+        <text x="290" y="111" text-anchor="middle" font-size="12" opacity=".75">search Paytm catalogue</text>
+        <rect x="215" y="160" width="150" height="62" rx="12" fill="none" stroke="#b86e00" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="290" y="188" text-anchor="middle" font-size="15" font-weight="900">Stay Scout</text>
+        <text x="290" y="207" text-anchor="middle" font-size="12" opacity=".75">hotel quality, reviews</text>
+        <rect x="390" y="64" width="160" height="62" rx="12" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="470" y="92" text-anchor="middle" font-size="15" font-weight="900">Planner</text>
+        <text x="470" y="111" text-anchor="middle" font-size="12" opacity=".75">door-to-door options</text>
+        <rect x="390" y="160" width="160" height="62" rx="12" fill="none" stroke="currentColor" stroke-width="3"/>
+        <text x="470" y="188" text-anchor="middle" font-size="15" font-weight="900">Checker</text>
+        <text x="470" y="207" text-anchor="middle" font-size="12" opacity=".75">10 rules · no AI</text>
+
+        <line x1="190" y1="95" x2="213" y2="95" stroke="currentColor" marker-end="url(#ar)"/>
+        <line x1="365" y1="95" x2="388" y2="95" stroke="currentColor" marker-end="url(#ar)"/>
+        <line x1="290" y1="126" x2="290" y2="158" stroke="#b86e00" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+        <line x1="470" y1="126" x2="470" y2="158" stroke="currentColor" marker-end="url(#ar)"/>
+        <line x1="110" y1="158" x2="110" y2="128" stroke="#b86e00" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+        <text x="118" y="146" font-size="11.5" opacity=".8">prefills</text>
+        <text x="298" y="146" font-size="11.5" opacity=".8">hotels</text>
+        <text x="478" y="146" font-size="11.5" opacity=".8">every option</text>
+
+        <!-- checker to concierge read-back -->
+        <path d="M390 205 L210 205 L210 240 L110 240 L110 224" fill="none" stroke="currentColor" opacity="0" />
+        <rect x="30" y="262" width="520" height="56" rx="12" fill="#0aa7dc" fill-opacity="0.10" stroke="none"/>
+        <text x="46" y="286" font-size="13" font-weight="900">Triage on every plan</text>
+        <text x="46" y="306" font-size="12.5">AUTO: all checks pass · ASK: you must choose (waitlist, price change) · ESCALATE: a human decides</text>
+
+        <!-- booking -->
+        <rect x="600" y="160" width="140" height="62" rx="12" fill="none" stroke="currentColor" stroke-width="2"/>
+        <text x="670" y="188" text-anchor="middle" font-size="15" font-weight="900">Checkout</text>
+        <text x="670" y="207" text-anchor="middle" font-size="12" opacity=".75">1 cart · 1 approval</text>
+        <line x1="550" y1="191" x2="598" y2="191" stroke="currentColor" marker-end="url(#ar)"/>
+        <text x="604" y="250" font-size="11.5" opacity=".85">needs your</text>
+        <text x="604" y="265" font-size="11.5" opacity=".85">on-screen yes</text>
+
+        <!-- after -->
+        <rect x="790" y="64" width="150" height="62" rx="12" fill="none" stroke="#b86e00" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="865" y="92" text-anchor="middle" font-size="15" font-weight="900">Trip Guardian</text>
+        <text x="865" y="111" text-anchor="middle" font-size="12" opacity=".75">delays, weather, metro</text>
+        <rect x="955" y="64" width="140" height="62" rx="12" fill="none" stroke="#b86e00" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="1025" y="92" text-anchor="middle" font-size="15" font-weight="900">Proactive Caller</text>
+        <text x="1025" y="111" text-anchor="middle" font-size="12" opacity=".75">rings you first</text>
+        <rect x="790" y="160" width="150" height="62" rx="12" fill="none" stroke="#b86e00" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="865" y="188" text-anchor="middle" font-size="15" font-weight="900">Aftercare</text>
+        <text x="865" y="207" text-anchor="middle" font-size="12" opacity=".75">cancel, refund, claims</text>
+        <line x1="740" y1="180" x2="788" y2="110" stroke="currentColor" marker-end="url(#ar)"/>
+        <text x="742" y="138" font-size="11.5" opacity=".8">booked</text>
+        <line x1="940" y1="95" x2="953" y2="95" stroke="#b86e00" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+        <line x1="865" y1="126" x2="865" y2="158" stroke="#b86e00" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+        <text x="873" y="146" font-size="11.5" opacity=".8">if you cancel</text>
+        <path d="M865 64 C865 34 520 34 480 60" fill="none" stroke="#b86e00" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+        <text x="610" y="52" font-size="11.5" opacity=".85">re-plan the rest of the trip (Planner + Checker)</text>
+        <rect x="955" y="160" width="140" height="62" rx="12" fill="none" stroke="currentColor" stroke-opacity=".3"/>
+        <text x="1025" y="186" text-anchor="middle" font-size="12.5">You choose:</text>
+        <text x="1025" y="204" text-anchor="middle" font-size="12.5">wait · move · cancel</text>
+        <line x1="1025" y1="126" x2="1025" y2="158" stroke="#b86e00" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+
+        <!-- handoff spanning -->
+        <rect x="30" y="436" width="1080" height="62" rx="14" fill="#b86e00" fill-opacity="0.12" stroke="#b86e00" stroke-width="2"/>
+        <text x="570" y="464" text-anchor="middle" font-size="15" font-weight="900">Handoff to a person · live</text>
+        <text x="570" y="484" text-anchor="middle" font-size="12.5">Disputes, refunds the rules cannot settle, special assistance, repeated failures, or simply "I want a person". The full trip timeline goes with the case.</text>
+        <line x1="290" y1="412" x2="290" y2="434" stroke="#b86e00" marker-end="url(#ar)"/>
+        <line x1="670" y1="412" x2="670" y2="434" stroke="#b86e00" marker-end="url(#ar)"/>
+        <line x1="940" y1="412" x2="940" y2="434" stroke="#b86e00" marker-end="url(#ar)"/>
+      </g>
+    </svg>
+    <figcaption>Solid boxes run in today's demo. Dashed amber boxes are designed and next. Arrows show who hands work to whom; the Checker sits on every path that leads to money, and every path can end with a person.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Each agent, its job and its limits</h2>
+  <p class="lede">"Brain" says what decides: an LLM for language, plain code for anything about time, money or safety. "Panel" is the line the agent writes in the live Agent activity panel.</p>
+
+  <div class="phase">
+    <h3>Before you book</h3>
+    <div class="cards">
+      <article class="card">
+        <header><h4>Concierge</h4><span class="pill live">Live</span></header>
+        <p class="job">Understands you and asks only what it cannot infer.</p>
+        <dl>
+          <dt>Reads</dt><dd>Your words by phone or chat, in English, Hindi or Hinglish; what was asked last turn; chips you tap.</dd>
+          <dt>Does</dt><dd>Extracts from, to, date (year inferred), return ("back in two days"), deadline ("by lunch"), budget, cheapest or fastest. Then asks, like a travel agent, at most two things in one sentence: flight or train, return, hotel. "You decide" skips it.</dd>
+          <dt>Gives</dt><dd>A natural question, or a hand-off to planning; editable assumption chips; the spoken read-back.</dd>
+          <dt>Never</dt><dd class="never">Books or pays. Takes a card number, OTP, UPI PIN or Aadhaar on a call: refused before it is stored.</dd>
+          <dt>Brain</dt><dd class="brain">Sarvam LLM for the conversation and tool choice · deterministic parser in the backend</dd>
+          <dt>Panel</dt><dd class="panelrow">Concierge · asking about mode, hotel</dd>
+        </dl>
+      </article>
+
+      <article class="card designed">
+        <header><h4>Memory</h4><span class="pill designed">Designed</span></header>
+        <p class="job">Remembers what you like, only after you say yes.</p>
+        <dl>
+          <dt>Reads</dt><dd>Choices you repeat across trips: train over flight, aisle seat, veg meals, a budget hotel near the venue, your office as the usual start.</dd>
+          <dt>Does</dt><dd>Asks once: "You picked the Rajdhani twice. Shall I remember that you prefer trains for Delhi?" Saves only on yes. Next time it prefills the choice, says so out loud, and asks one question fewer.</dd>
+          <dt>Gives</dt><dd>Prefilled chips marked "from your preferences"; a page to see, edit or delete every memory.</dd>
+          <dt>Never</dt><dd class="never">Saves without a yes. Stores ID numbers, card details or anything about health. Shares memories with a hotel or airline.</dd>
+          <dt>Brain</dt><dd class="brain">LLM proposes a memory · code stores it with your consent record</dd>
+          <dt>Panel</dt><dd class="panelrow">Memory · prefilled mode=train (saved 2 Nov, your yes)</dd>
+        </dl>
+      </article>
+
+      <article class="card">
+        <header><h4>Scouts</h4><span class="pill live">Live</span></header>
+        <p class="job">Search what Paytm actually sells for this trip.</p>
+        <dl>
+          <dt>Reads</dt><dd>Origin and destination places, travel and return dates.</dd>
+          <dt>Does</dt><dd>Finds the nearest metro station and walk; metro lines, first and last trains, fares; flights; overnight trains, including the night before; hotels; add-ons. Cached, so a plan takes about a second.</dd>
+          <dt>Gives</dt><dd>An inventory bundle for the Planner.</dd>
+          <dt>Never</dt><dd class="never">Invents an option. Anything outside the catalogue gets "not covered in this prototype".</dd>
+          <dt>Brain</dt><dd class="brain">Code (read-only queries)</dd>
+          <dt>Panel</dt><dd class="panelrow">Scouts · 10 outbound flights, 9 return, 6 hotels</dd>
+        </dl>
+      </article>
+
+      <article class="card designed">
+        <header><h4>Stay Scout</h4><span class="pill designed">Designed</span></header>
+        <p class="job">Checks a hotel before Raahi puts your name on it.</p>
+        <dl>
+          <dt>Reads</dt><dd>Ratings and recent reviews from the hotel partner, complaint themes, cancellation history, distance to your venue, check-in rules.</dd>
+          <dt>Does</dt><dd>Scores each hotel on recent reviews, cleanliness and safety mentions, how often bookings were dishonoured, and walking time. Drops any that fall below the bar and says why: "Skipped CP Budget Inn: rating 3.4, three recent complaints about cancelled bookings."</dd>
+          <dt>Gives</dt><dd>A short list with a one-line reason per hotel; the Planner uses only hotels that pass.</dd>
+          <dt>Never</dt><dd class="never">Shows a hotel it could not verify as "recommended". Fakes or paraphrases a review as a quote.</dd>
+          <dt>Brain</dt><dd class="brain">LLM summarises review themes · code applies the thresholds</dd>
+          <dt>Panel</dt><dd class="panelrow">Stay Scout · 4 of 6 hotels pass; 2 dropped (rating, complaints)</dd>
+        </dl>
+      </article>
+
+      <article class="card">
+        <header><h4>Planner</h4><span class="pill live">Live</span></header>
+        <p class="job">Turns inventory into complete door-to-door journeys.</p>
+        <dl>
+          <dt>Reads</dt><dd>The inventory, plus flight or train, hotel or not, cheapest or fastest, travellers and dates.</dd>
+          <dt>Does</dt><dd>Builds every option backwards from departure (75 min at the airport, 30 at the station, the right metro to the right terminal) and forwards from arrival (exit, metro, walk, check-in), adds the return and hotel, ranks the valid ones.</dd>
+          <dt>Gives</dt><dd>Top 3 options, the 2 most telling rejections, and a triage: AUTO, ASK or ESCALATE.</dd>
+          <dt>Never</dt><dd class="never">Offers a departure that has already left, or a plan the Checker rejected. Runs past an 8-second budget: it says "shall I try again?" instead.</dd>
+          <dt>Brain</dt><dd class="brain">Code (deterministic: same input, same plan)</dd>
+          <dt>Panel</dt><dd class="panelrow">Planner · 3 candidate plans, triage AUTO</dd>
+        </dl>
+      </article>
+
+      <article class="card">
+        <header><h4>Checker</h4><span class="pill live">Live</span></header>
+        <p class="job">The referee. Rejects any plan that cannot work. Nothing overrides it.</p>
+        <dl>
+          <dt>Reads</dt><dd>One candidate plan, metro service hours, current prices.</dd>
+          <dt>Does</dt><dd>Ten rules: airport buffer, first and last metro, connection time, terminal match, arrive-by, budget, return present, hotel dates, availability, price drift.</dd>
+          <dt>Gives</dt><dd>Pass, reject (with the reason, in English and Hindi) or "ask first". This is what rejects the 06:00 flight: the first Aqua Line train is at 06:30.</dd>
+          <dt>Never</dt><dd class="never">Uses an LLM. Gets overruled by one.</dd>
+          <dt>Brain</dt><dd class="brain">Code (10 pure functions, thresholds in one config file)</dd>
+          <dt>Panel</dt><dd class="panelrow">Checker · 3 passed, 2 rejected (first_last_metro)</dd>
+        </dl>
+      </article>
+    </div>
+
+    <h3>Booking</h3>
+    <div class="cards">
+      <article class="card">
+        <header><h4>Checkout</h4><span class="pill live">Live</span></header>
+        <p class="job">One cart, one approval, every ticket at once.</p>
+        <dl>
+          <dt>Reads</dt><dd>The chosen plan and add-ons (₹99 cancellation cover, insurance, Travel Pass); your on-screen approval with an idempotency key.</dd>
+          <dt>Does</dt><dd>Builds one cart; the approval sheet opens on screen by itself. On approval, re-checks prices, then books every leg in one transaction and issues every ticket.</dd>
+          <dt>Gives</dt><dd>The trip wallet: metro QR codes, PNRs, hotel voucher, policy.</dd>
+          <dt>Never</dt><dd class="never">Charges without your yes on screen. The phone has no tool that pays. A double tap never books twice; a failure books nothing.</dd>
+          <dt>Brain</dt><dd class="brain">Code (transaction, idempotency, revision checks)</dd>
+          <dt>Panel</dt><dd class="panelrow">Checkout · 8 tickets issued, ₹13,319</dd>
+        </dl>
+      </article>
+    </div>
+
+    <h3>After you book, until you are home</h3>
+    <div class="cards">
+      <article class="card designed">
+        <header><h4>Trip Guardian</h4><span class="pill designed">Designed</span></header>
+        <p class="job">Watches every leg and notices problems before you do.</p>
+        <dl>
+          <dt>Reads</dt><dd>Flight status, train running status, metro service alerts, weather and rain warnings on your route, hotel check-in confirmation.</dd>
+          <dt>Does</dt><dd>On a change, re-runs the Checker on the rest of the trip (will the metro still run, will you miss check-in) and prepares three options: wait, move to a later flight or train, or cancel with the ₹99 cover. On heavy rain: "leave 40 minutes earlier, the Western Express Highway is slow."</dd>
+          <dt>Gives</dt><dd>An alert with priced options, on screen, and a request to the Proactive Caller.</dd>
+          <dt>Never</dt><dd class="never">Cancels or rebooks on its own. Every change waits for your choice.</dd>
+          <dt>Brain</dt><dd class="brain">Code for detection and re-checks · LLM for the explanation</dd>
+          <dt>Panel</dt><dd class="panelrow">Guardian · BK 114 delayed 2 h; 3 options ready</dd>
+        </dl>
+      </article>
+
+      <article class="card designed">
+        <header><h4>Proactive Caller</h4><span class="pill designed">Designed</span></header>
+        <p class="job">Rings you first, so a delay is a choice, not a surprise.</p>
+        <dl>
+          <dt>Reads</dt><dd>A Guardian alert, your preferred channel and quiet hours.</dd>
+          <dt>Does</dt><dd>Places an outbound Sarvam voice call: "Hi Anika, Raahi here. Your 8:30 flight is now 10:30. I can move you to the 9:15, keep the plan, or cancel with your ₹99 cover. Which would you like?" Falls back to WhatsApp, then an in-app alert.</dd>
+          <dt>Gives</dt><dd>Your choice, sent to Checkout; a "leave by" reminder before every trip.</dd>
+          <dt>Never</dt><dd class="never">Takes payment on the call. Calls during quiet hours unless the trip is at risk. Gives up silently: if you don't answer, the alert stays on screen.</dd>
+          <dt>Brain</dt><dd class="brain">Sarvam voice agent · same tools and limits as today's inbound line</dd>
+          <dt>Panel</dt><dd class="panelrow">Caller · rang +91 ••••• 4821, choice: later flight</dd>
+        </dl>
+      </article>
+
+      <article class="card designed">
+        <header><h4>Aftercare</h4><span class="pill designed">Designed</span></header>
+        <p class="job">Handles cancellations, refunds and claims end to end.</p>
+        <dl>
+          <dt>Reads</dt><dd>Your cancel request or a Guardian outcome; fare rules for airline and IRCTC refunds; the ₹99 cover and insurance terms; refund status.</dd>
+          <dt>Does</dt><dd>Works out what each leg refunds before you cancel, cancels every affected leg together, files the cover or insurance claim, and tracks each refund until the money is back.</dd>
+          <dt>Gives</dt><dd>"₹4,330 back on the flight, ₹4,800 on the hotel, ₹55 on metro; expected by 6 Nov." Updates until settled.</dd>
+          <dt>Never</dt><dd class="never">Cancels without your yes. Closes a disputed refund itself: that goes to Handoff.</dd>
+          <dt>Brain</dt><dd class="brain">Code applies fare and refund rules · LLM explains them</dd>
+          <dt>Panel</dt><dd class="panelrow">Aftercare · refund ₹9,185 filed, 2 of 3 legs settled</dd>
+        </dl>
+      </article>
+
+      <article class="card">
+        <header><h4>Handoff</h4><span class="pill live">Live</span></header>
+        <p class="job">Brings in a person whenever rules cannot help.</p>
+        <dl>
+          <dt>Reads</dt><dd>A reason, the trip and the conversation.</dd>
+          <dt>Does</dt><dd>Opens a support case with the full trip timeline and the last messages attached, and reads the case number to you.</dd>
+          <dt>Gives</dt><dd>Case <code>RAAHI-71483</code>; a person follows up.</dd>
+          <dt>Never</dt><dd class="never">Closes or settles a dispute itself.</dd>
+          <dt>Brain</dt><dd class="brain">Code</dd>
+          <dt>Panel</dt><dd class="panelrow">Handoff · case RAAHI-71483 opened for a human</dd>
+        </dl>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>After the booking: a delay, handled before you notice</h2>
+  <p class="lede">How the designed agents work together on the hero trip. Times are on the travel day; the flight is the 08:30 BlueKite BK 114 from Mumbai T1.</p>
+  <ol class="timeline">
+    <li><time>05:40</time><span class="dot"></span><p><span class="who">Trip Guardian</span> sees BK 114 move to 10:30 in the status feed.</p></li>
+    <li><time>05:40</time><span class="dot"></span><p><span class="who">Checker</span> re-checks the rest: arrival at Connaught Place 13:44 misses the 13:00 lunch; the hotel and the return still work.</p></li>
+    <li><time>05:41</time><span class="dot"></span><p><span class="who">Planner</span> prices three options: wait (no cost), move to the 09:15 Maharaja Air (₹2,040 more, arrives 12:29), or cancel with the ₹99 cover (full refund).</p></li>
+    <li><time>05:42</time><span class="dot"></span><p><span class="who">Proactive Caller</span> rings Anika: "Your 8:30 is now 10:30, so you'd miss lunch. I can move you to the 9:15 for ₹2,040 more. Shall I?" She says yes.</p></li>
+    <li><time>05:43</time><span class="dot"></span><p><span class="who">Checkout</span> sends the ₹2,040 difference to her Paytm screen. One tap. New PNR and a new metro QR land in the wallet; the old ones are cancelled.</p></li>
+    <li><time>05:43</time><span class="dot"></span><p><span class="who">Aftercare</span> claims the refund on the cancelled leg and tracks it.</p></li>
+    <li><time>07:05</time><span class="dot"></span><p><span class="who">Trip Guardian</span> sends the "leave by 07:31" reminder for the new flight, with rain on the route factored in.</p></li>
+  </ol>
+  <p class="foot">Every step that changes money or tickets waits for her yes. If she doesn't answer, the alert stays on screen and nothing changes.</p>
+</section>
+
+<section>
+  <h2>Where Raahi always waits for your yes</h2>
+  <div class="consent">
+    <div><b>Paying</b>Only on the Paytm screen, one approval for the whole cart. The phone can plan and send a cart; it cannot pay.</div>
+    <div><b>Changing a booked trip</b>Every rebooking, price difference and cancellation is offered as a choice first.</div>
+    <div><b>Remembering you</b>A preference is saved only after "yes, remember that". You can see and delete every memory.</div>
+    <div><b>Never asked, never stored</b>UPI PIN, OTP, card number, CVV, passwords, Aadhaar, PAN or passport numbers on a call.</div>
+  </div>
+</section>
+
+<section>
+  <h2>How the voice agent reaches the team</h2>
+  <p class="lede">The Sarvam voice agent on +91 80642 69831 calls our backend through tools. Each call carries a bearer secret and a 4-digit session code, so a caller can only touch their own trip. Every reply has the same shape: <code>ok, status, say_en, say_hi, next_action, missing_slots, assumptions, errors</code>.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Tool</th><th>Status</th><th>Input</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr><td><code>plan_trip</code></td><td><span class="pill live">Live</span></td><td>What the caller said, the code</td><td>A natural question, or the plan with the total</td></tr>
+      <tr><td><code>modify_plan</code></td><td><span class="pill live">Live</span></td><td>The change in the caller's words</td><td>The re-checked plan</td></tr>
+      <tr><td><code>get_plan_details</code></td><td><span class="pill live">Live</span></td><td>Code</td><td>Leg by leg, with times</td></tr>
+      <tr><td><code>send_for_approval</code></td><td><span class="pill live">Live</span></td><td>Code, add-ons</td><td>"Sent to your Paytm screen; nothing is charged until you approve"</td></tr>
+      <tr><td><code>get_booking_status</code></td><td><span class="pill live">Live</span></td><td>Code</td><td>"Not booked yet" or "Booked, 8 tickets, reference…"</td></tr>
+      <tr><td><code>request_human_help</code></td><td><span class="pill live">Live</span></td><td>Reason</td><td>Case number</td></tr>
+      <tr><td><code>get_session_context</code></td><td><span class="pill live">Live</span></td><td>Code</td><td>Session confirmed</td></tr>
+      <tr><td><code>get_trip_status</code>, <code>choose_disruption_option</code></td><td><span class="pill live">Live</span> endpoints</td><td>Code, chosen option</td><td>Answer "not available yet" until the Guardian lands</td></tr>
+      <tr><td><code>remember_preference</code></td><td><span class="pill designed">Designed</span></td><td>Preference, the caller's explicit yes</td><td>"Saved. You can change it any time in Raahi."</td></tr>
+      <tr><td><code>check_stay_quality</code></td><td><span class="pill designed">Designed</span></td><td>Hotel ids, venue</td><td>Pass or drop, with a one-line reason</td></tr>
+      <tr><td><code>call_traveller</code></td><td><span class="pill designed">Designed</span></td><td>Alert id</td><td>Outbound call placed; the choice made</td></tr>
+      <tr><td><code>quote_cancellation</code>, <code>file_refund</code></td><td><span class="pill designed">Designed</span></td><td>Legs to cancel, the caller's yes</td><td>Refund per leg, expected date, claim status</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>Guardrails, layer by layer</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Layer</th><th>What protects it</th></tr></thead>
+    <tbody>
+      <tr><td>Conversation</td><td>Asks only what it can't infer, at most two things at once. Says "booked" only after a tool confirms it. Never invents prices or times. Says honestly that it is an AI. Hands disputes to a person.</td></tr>
+      <tr><td>Tools</td><td>Bearer secret, session-code binding, every field validated, sensitive numbers refused, 60 calls a minute per caller, clean spoken errors instead of failures.</td></tr>
+      <tr><td>Decisions</td><td>The Checker cannot be overridden. Payment only on screen with an idempotency key. All-or-nothing booking. Every change bumps the trip's revision, so the phone and the app cannot overwrite each other.</td></tr>
+      <tr><td>Data</td><td>Row-level security with no public access; keys only on the server; every booking marked DEMO. Memory only with consent, with view and delete.</td></tr>
+      <tr><td>Reliability</td><td>8-second planning budget with a retry line, 25-second tool timeout, health check, warm cache at start-up.</td></tr>
+      <tr><td>Observability</td><td>Every agent step writes a row: who, what, result, status, time taken. The judges watch the team work, live.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="foot">Live: Concierge, Scouts, Planner, Checker, Checkout, Handoff, the Sarvam phone line and the live screen. Designed and next: Memory, Stay Scout, Trip Guardian, Proactive Caller, Aftercare. Demo inventory and bookings are mocked and marked DEMO.</p>
+</section>
+</main>
+</body>
+</html>
