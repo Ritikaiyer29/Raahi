@@ -1,13 +1,13 @@
 # Sarvam voice agent setup
 
-Status on 31 Oct 2026: agent created as a **draft** (not yet committed or deployed). The tools point at the Render URL below.
+Status on 31 Oct 2026: version 1 **committed and deployed** on the number below (deployment `Raahi-inbou-383a9646-93e8`, 24/7). Tested in chat: plan with return and hotel (₹13,220), add ₹99 cover, "not booked" until screen approval, booked after approval, card/OTP refused, refund dispute opens a support case.
 
 | Item | Value |
 |---|---|
 | Agent name | Raahi - Paytm Travel Teammate |
 | Agent id | `Raahi---Pay-56850687-568d` |
 | Phone number | +91 80642 69831 (vobiz connection `c3d7fc2b-88-7a4609d2-30e3`, onboarded) |
-| Tool base URL | `https://raahi-wzf9.onrender.com/api/agent/tools/` (update all 9 tools if the Render URL changes) |
+| Tool base URL | `https://raahi-mtoy.onrender.com/api/agent/tools/` (Render Frankfurt). The MCP cannot change a URL once a secret is attached: edit URLs in the console |
 | Voice | Neha - Support Agent (`01a0cf16-98e5-7477-b1c4-73db8ad8ba82`), English + Hindi |
 | Tool timeout | 25 s (Sarvam allows up to 30 s) |
 | Prompt | `sarvam/agent_prompt.md` (the Sarvam draft is the source of truth) |
@@ -15,7 +15,7 @@ Status on 31 Oct 2026: agent created as a **draft** (not yet committed or deploy
 ## One manual step the MCP cannot do: tool authentication
 
 Sarvam stores the secret; our MCP session is not allowed to set auth. In the Sarvam console:
-1. Secrets → add a secret named `RAAHI_TOOL_SECRET` with the **same value** as `AGENT_TOOL_SECRET` in Render.
+1. Secrets → add a secret named `RAAHI_TOOL_SECRET` with the **same value** as `AGENT_TOOL_SECRET` in Render (43 characters, no `Bearer` prefix). If tools return 401, `/healthz` shows `last_tool_auth_failure` with the lengths received and expected.
 2. Open the agent → each of the 9 tools → Auth → **Bearer** → choose `RAAHI_TOOL_SECRET`.
 
 Without this, every tool call returns 401 and the agent says its "travel system is slow" line.
@@ -41,3 +41,7 @@ The agent speaks exactly the `say_en` text our backend returns. `missing_slots`,
 - Which language the call speaks when the caller switches to Hindi: our template always renders `say_en`.
 - Sarvam's concurrent-call limit for this number is not visible through the API. Take one caller at a time.
 - `choose_disruption_option` answers "not available yet" until the Guardian is built.
+
+## Changing the agent later
+
+Edit the draft (version 2+), test with `send_chat` on the draft version, commit, then patch the deployment's `app_version`. Never delete and recreate the deployment: that releases the number.

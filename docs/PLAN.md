@@ -44,10 +44,11 @@ Status: [ ] todo · [~] in progress · [x] done. OPTIONAL items are cut first.
 ## 5. Sarvam phone agent (v2 §4)
 - [x] Verified workspace capabilities via MCP (31 Oct): HTTP tools with bearer credential, `resp_template`, timeout ≤ 30 s; **0 telephony connections / numbers / deployments**
 - [x] Agent created (draft `Raahi---Pay-56850687-568d`): 9 tools, prompt, voicemail, nudges, call goal. Not yet committed.
-- [ ] User: store tool secret in Sarvam and select it on the 9 tools (docs/SARVAM_SETUP.md)
-- [ ] Test call to a verified number
+- [x] Tool secret stored and selected on the 9 tools
+- [x] Chat tests on the draft: plan, approval, booking status, card refusal, human handoff
+- [ ] Real phone call test (call the number)
 - [x] Number +91 80642 69831 bought and onboarded (vobiz connection)
-- [ ] Deploy committed agent version to the number
+- [x] Version 1 committed and deployed to +91 80642 69831 (24/7)
 - [ ] `docs/SARVAM_SETUP.md`, call script in `docs/DEMO_DAY.md`, backup video
 
 ## 6. Day plans (v2 §3A.2)
