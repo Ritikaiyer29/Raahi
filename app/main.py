@@ -51,10 +51,19 @@ app.include_router(tools_router)
 STATIC_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 
+_last_db_failure: dict = {"at": 0.0, "body": None}
+RETRY_AFTER_AUTH_FAILURE_S = 60
+
+
 @app.get("/healthz")
 async def healthz():
     """Always 200 so Render keeps the service up; `db` says whether Postgres is reachable. Errors are redacted."""
     db_ok, err, db_ms = True, None, None
+    # After an auth failure, do not retry for a minute: Render pings /healthz every 10 s and every bad login keeps
+    # Supabase's circuit breaker (ECIRCUITBREAKER) open.
+    f = _last_db_failure
+    if f["body"] and time.monotonic() - f["at"] < RETRY_AFTER_AUTH_FAILURE_S:
+        return {**f["body"], "cached": True}
     try:
         async with asyncio.timeout(20):
             async with engine.connect() as conn:
@@ -71,8 +80,13 @@ async def healthz():
         err = f"{err} / {detail}"
         log.error("healthz db check failed: %s", err)
     host = urlparse(settings.async_database_url).hostname if settings.database_url else "sqlite"
-    return {"status": "ok" if db_ok else "degraded", "db": db_ok, "db_error": err, "db_host": host, "db_roundtrip_ms": db_ms,
+    body = {"status": "ok" if db_ok else "degraded", "db": db_ok, "db_error": err, "db_host": host, "db_roundtrip_ms": db_ms,
             "version": __version__, "commit": settings.commit}
+    if not db_ok and any(k in (err or "") for k in ("authentication", "ECIRCUITBREAKER", "password", "Tenant or user")):
+        f["at"], f["body"] = time.monotonic(), body
+    else:
+        f["body"] = None
+    return body
 
 
 if STATIC_DIR.exists():
