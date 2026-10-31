@@ -50,6 +50,7 @@ Status: [ ] todo · [~] in progress · [x] done. OPTIONAL items are cut first.
 - [ ] Real phone call test (call the number)
 - [x] Number +91 80642 69831 bought and onboarded (vobiz connection)
 - [x] Version 1 committed and deployed to +91 80642 69831 (24/7)
+- [x] Version 2 (travel-agent questions, trains) tested in chat and deployed
 - [ ] `docs/SARVAM_SETUP.md`, call script in `docs/DEMO_DAY.md`, backup video
 
 ## 6. Day plans (v2 §3A.2)

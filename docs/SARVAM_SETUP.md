@@ -1,6 +1,6 @@
 # Sarvam voice agent setup
 
-Status on 31 Oct 2026: version 1 **committed and deployed** on the number below (deployment `Raahi-inbou-383a9646-93e8`, 24/7). Tested in chat: plan with return and hotel (₹13,220), add ₹99 cover, "not booked" until screen approval, booked after approval, card/OTP refused, refund dispute opens a support case.
+Status on 31 Oct 2026: **version 2 deployed** (travel-agent questions, trains). Version 1 was on the number below (deployment `Raahi-inbou-383a9646-93e8`, 24/7). Tested in chat: plan with return and hotel (₹13,220), add ₹99 cover, "not booked" until screen approval, booked after approval, card/OTP refused, refund dispute opens a support case.
 
 | Item | Value |
 |---|---|
@@ -42,6 +42,16 @@ The agent speaks exactly the `say_en` text our backend returns. `missing_slots`,
 - Sarvam's concurrent-call limit for this number is not visible through the API. Take one caller at a time.
 - `choose_disruption_option` answers "not available yet" until the Guardian is built.
 
+## Known console fix (optional)
+
+The `plan_trip` tool description still says "do not ask questions first" (the MCP cannot edit a tool with a secret attached).
+The v2 prompt overrides it, but for tidiness edit it in the console to: *Plans a whole door-to-door trip… Call it as soon as a
+destination is known, and again with each answer the caller gives, always with the same Raahi code. Its reply is either a short
+question to ask the caller (flight or train, return, hotel) or the plan with the total price.*
+
 ## Changing the agent later
+
+Deployments can only be edited while paused: pause, patch `app_version`, resume (a few seconds). Each version has its own copy of
+the tools with new ids.
 
 Edit the draft (version 2+), test with `send_chat` on the draft version, commit, then patch the deployment's `app_version`. Never delete and recreate the deployment: that releases the number.
