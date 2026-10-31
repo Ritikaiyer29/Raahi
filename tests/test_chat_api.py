@@ -40,6 +40,14 @@ async def test_plan_first_no_questions_and_assumptions():
         assert {"origin", "depart_date"} <= assumed
 
 
+async def test_read_back_is_clean_for_one_way_and_return():
+    async with client() as c:
+        r = (await c.post("/api/chat", json={"message": "Marol office to Connaught Place tomorrow"})).json()
+        assert ".." not in r["reply_en"] and "One way" in r["reply_en"]
+        r = (await c.post("/api/chat", json={"message": SENTENCE})).json()
+        assert ".." not in r["reply_en"] and "fly back on" in r["reply_en"] and "nights" in r["reply_en"]
+
+
 async def test_only_missing_destination_asks_one_question():
     async with client() as c:
         r = (await c.post("/api/chat", json={"message": "I need to travel tomorrow, keep it cheap"})).json()

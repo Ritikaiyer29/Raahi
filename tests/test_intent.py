@@ -30,6 +30,15 @@ def test_return_date_used_when_valid():
     assert p.return_date == "2026-11-13"
 
 
+def test_llm_paraphrases_of_the_return_are_understood():
+    # The Sarvam agent rewrites "back on the 24th" as "returning on the 24th"; that must still mean a return leg.
+    for text in ["From Paytm Marol office to Connaught Place by lunch tomorrow, returning on the 24th. Cheapest option.",
+                 "Marol to Connaught Place tomorrow, return on the 24th", "Marol to CP tomorrow, round trip, back on the 24th",
+                 "Marol to Connaught Place tomorrow and coming back on the 24th"]:
+        p = parse_intent(text, today=TODAY)
+        assert p.return_date == "2026-11-03", text
+
+
 def test_year_is_inferred_never_asked():
     p = parse_intent("I want to go from Borivali to Dubai on 5th November", today=TODAY)
     assert p.depart_date == "2026-11-05"

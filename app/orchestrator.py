@@ -70,15 +70,23 @@ def read_back(c: Candidate, req: Request) -> tuple[str, str]:
           f"{metro2.details['line_name']} to {metro2.to_label}, then a short walk to {req.destination}.")
     hi = (f"मुझे एक प्लान मिला: {metro1.details['line_name']} से {metro1.to_label}, {hhmm(fl.start)} की {fl.details['airline']} फ्लाइट, "
           f"फिर {metro2.details['line_name']} से {metro2.to_label}।")
+    en_parts, hi_parts = [], []
     if hotel:
-        en += f" You stay at {hotel.details['hotel']} for {hotel.details['nights']} nights"
-        hi += f" आप {hotel.details['hotel']} में {hotel.details['nights']} रात रुकेंगे"
+        en_parts.append(f"you stay at {hotel.details['hotel']} for {hotel.details['nights']} nights")
+        hi_parts.append(f"आप {hotel.details['hotel']} में {hotel.details['nights']} रात रुकेंगे")
     if req.return_date:
         ret = next(l for l in c.plan.returning() if l.mode == "flight")
-        en += f", and fly back on {date.fromisoformat(req.return_date):%d %b} at {hhmm(ret.start)}"
-        hi += f", और {date.fromisoformat(req.return_date):%d %b} को {hhmm(ret.start)} पर वापस"
-    en += f". Total ₹{c.plan.total_price:,}. Shall I send it to your Paytm screen to approve?"
-    hi += f"। कुल ₹{c.plan.total_price:,}। क्या मैं इसे आपकी Paytm स्क्रीन पर अप्रूवल के लिए भेजूँ?"
+        en_parts.append(f"fly back on {date.fromisoformat(req.return_date):%d %b} at {hhmm(ret.start)}")
+        hi_parts.append(f"{date.fromisoformat(req.return_date):%d %b} को {hhmm(ret.start)} पर वापसी")
+    if en_parts:
+        s = " and ".join(en_parts)
+        en += f" Then {s}."
+        hi += " " + ", ".join(hi_parts) + "।"
+    else:
+        en += " One way, since no return was mentioned."  # the assumption is spoken, so the caller can correct it
+        hi += " सिर्फ़ एक तरफ़ा, क्योंकि वापसी नहीं बताई गई।"
+    en += f" Total ₹{c.plan.total_price:,}. Shall I send it to your Paytm screen to approve?"
+    hi += f" कुल ₹{c.plan.total_price:,}। क्या मैं इसे आपकी Paytm स्क्रीन पर अप्रूवल के लिए भेजूँ?"
     return en, hi
 
 

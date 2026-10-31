@@ -41,7 +41,7 @@ def detect_language(text: str) -> str:
 
 
 def _ordinal_day(t: str) -> int | None:
-    m = re.search(r"(?:back|return|wapas|vapas|वापस)[^.\d]{0,25}?(?:on|by)?\s*(?:the\s*)?(\d{1,2})(?:st|nd|rd|th)?", t)
+    m = re.search(r"(?:back|return(?:ing|s)?|wapas|vapas|वापस)[^.\d]{0,25}?(?:on|by)?\s*(?:the\s*)?(\d{1,2})(?:st|nd|rd|th)?", t)
     if not m:
         m = re.search(r"(\d{1,2})(?:st|nd|rd|th)?\s*(?:ko|को|तारीख|तारीख़)?\s*(?:ko\s*|को\s*)?(?:wapas|vapas|वापस)", t)
     if not m:
@@ -112,7 +112,7 @@ def parse_intent(text: str, today: date | None = None, previous: ParsedRequest |
     # return date: "back on the 24th" - if that date is not after departure, use depart + offset (demo-configurable)
     if len(dated) > 1 and dated[1] > dated[0]:
         out.return_date = dated[1].isoformat()
-    elif re.search(r"\b(back|return|wapas|vapas)\b|वापस", t) and out.depart_date:
+    elif re.search(r"\b(back|return|returns|returning|wapas|vapas|round[- ]trip)\b|वापस", t) and out.depart_date:
         day = _ordinal_day(t)
         dep = date.fromisoformat(out.depart_date)
         ret = None
