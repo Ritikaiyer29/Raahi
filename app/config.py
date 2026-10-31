@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     demo_admin_pin: str = "0000"
     sarvam_api_key: str = ""
     git_commit: str = "dev"
+    render_git_commit: str = ""  # set automatically by Render
+
+    @property
+    def commit(self) -> str:
+        return (self.render_git_commit or self.git_commit)[:7]
 
     @property
     def async_database_url(self) -> str:

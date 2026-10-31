@@ -42,7 +42,7 @@ async def healthz():
         "status": "ok" if db_ok else "degraded",
         "db": db_ok,
         "version": __version__,
-        "commit": settings.git_commit,
+        "commit": settings.commit,
     }
     return JSONResponse(body, status_code=200 if db_ok else 503)
 
