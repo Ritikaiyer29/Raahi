@@ -10,7 +10,7 @@ from .timeutil import at, ist
 
 # Inventory is small and read-mostly. A 60 s in-memory cache keeps planning fast over a slow DB link (Render Oregon to
 # Supabase Paris). Re-seeding clears it.
-CACHE_TTL_S = 60.0
+CACHE_TTL_S = 600.0  # inventory only changes on re-seed, which clears the cache
 _cache: dict = {}
 
 

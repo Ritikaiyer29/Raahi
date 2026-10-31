@@ -35,9 +35,17 @@ async def _warm_up():
     """Open the DB pool and load static inventory so the first Sarvam tool call is not a cold one (R1, R2)."""
     try:
         from .db import SessionLocal
-        from .scouts import _cached, _load_static
+        from datetime import timedelta
+
+        from .scouts import _cached, _load_static, find_place, search_flights, search_hotels
+        from .timeutil import today_ist
         async with SessionLocal() as s:
             await _cached("static", lambda: _load_static(s))
+            await find_place(s, "Paytm Marol office")
+            await search_hotels(s, "DEL")
+            tomorrow = today_ist() + timedelta(days=1)  # the hero demo: tomorrow out, two days later back
+            await search_flights(s, "BOM", "DEL", tomorrow)
+            await search_flights(s, "DEL", "BOM", tomorrow + timedelta(days=2))
         log.info("warm-up done")
     except Exception as e:
         log.warning("warm-up failed: %s", type(e).__name__)
