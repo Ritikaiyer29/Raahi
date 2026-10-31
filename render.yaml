@@ -2,6 +2,7 @@ services:
   - type: web
     name: raahi
     runtime: docker
+    region: frankfurt     # closest Render region to Supabase (Paris); Render cannot move a service between regions
     plan: free           # free spins down after ~15 min idle; switch to starter on demo day (docs/DEMO_DAY.md)
     healthCheckPath: /healthz
     envVars:
