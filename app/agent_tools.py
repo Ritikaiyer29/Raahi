@@ -77,10 +77,30 @@ class ApprovalIn(SessionIn):
     plan_id: uuid.UUID | None = None
     addons: list[str] = []
 
+    @field_validator("addons", mode="before")
+    @classmethod
+    def addons_from_text(cls, v):
+        """Sarvam sends tool fields as text ("cancellation cover, insurance"); accept that as well as a list."""
+        if v is None or v == "":
+            return []
+        if isinstance(v, str):
+            return [x.strip() for x in re.split(r"[,;]| and ", v) if x.strip()]
+        return v
+
+    @field_validator("plan_id", mode="before")
+    @classmethod
+    def blank_plan_id(cls, v):
+        return None if v in ("", None) else v
+
 
 class ChoiceIn(SessionIn):
     alert_id: uuid.UUID | None = None
     option_id: str
+
+    @field_validator("alert_id", mode="before")
+    @classmethod
+    def blank_alert_id(cls, v):
+        return None if v in ("", None) else v
 
 
 class HelpIn(SessionIn):

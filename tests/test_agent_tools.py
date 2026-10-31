@@ -77,3 +77,13 @@ async def test_human_help_opens_a_case():
         contract(r)
         assert r["status"] == "escalated" and r["case_no"].startswith("RAAHI-")
         assert (await c.get("/api/support/cases")).json()[0]["case_no"] == r["case_no"]
+
+
+async def test_addons_accepted_as_plain_text_from_sarvam():
+    async with client() as c:
+        r = (await c.post("/api/agent/tools/plan_trip", json={"request_text": SENTENCE}, headers=AUTH)).json()
+        a = (await c.post("/api/agent/tools/send_for_approval", json={"session_code": r["session_code"], "addons": "cancellation cover and insurance",
+                                                                       "plan_id": ""}, headers=AUTH)).json()
+        assert a["status"] == "awaiting_approval" and a["ok"]
+        snap = (await c.get(f"/api/trips/{r['trip_id']}")).json()
+        assert {"CANCEL99", "INSURANCE149"} <= {i["ref_id"] for i in snap["cart"]["items"]}
