@@ -191,10 +191,14 @@ async def plan_trip(body: PlanTripIn, s: AsyncSession = Depends(get_session)):
     if body.session_code is None and r["status"] in ("plan_ready", "ask"):
         say_en += f" Your Raahi code is {_spell(conv.session_code)}. Enter it on the Raahi screen to see the plan."
         say_hi += f" आपका राही कोड {_spell(conv.session_code)} है।"
+    elif body.session_code is None and r["status"] == "need_info":
+        # The follow-up call must carry this code, or the answer would start a second session.
+        say_en = f"Your Raahi code is {_spell(conv.session_code)}. {say_en}"
+        say_hi = f"आपका राही कोड {_spell(conv.session_code)} है। {say_hi}"
     await _log(s, "plan_trip", conv, f"{r['status']}, {len(r['plan_ids'])} plans")
     return reply(r["status"] in ("plan_ready", "ask", "need_info"), r["status"], say_en, say_hi, r.get("next_action") or "read_back",
                  missing_slots=r["missing_slots"], assumptions=r["assumptions"], trip_id=r["trip_id"], revision=r["revision"],
-                 session_code=conv.session_code, plan_id=r["plan_ids"][0] if r["plan_ids"] else None,
+                 session_code=conv.session_code, plan_id=r["plan_ids"][0] if r["plan_ids"] else None, asking=r.get("asking", []),
                  rejected=[x["message_en"] for x in r["rejected"]][:1])
 
 

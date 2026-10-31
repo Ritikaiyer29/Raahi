@@ -3,7 +3,8 @@ import httpx
 from app.main import app
 
 AUTH = {"Authorization": "Bearer test-secret"}
-SENTENCE = "I'm at Paytm's Marol office. I need to be at Connaught Place by lunch tomorrow, back on the 24th. Keep it cheap."
+BASE = "I'm at Paytm's Marol office. I need to be at Connaught Place by lunch tomorrow, back on the 24th. Keep it cheap."
+SENTENCE = BASE + " Flight please, and book a hotel near CP."
 TOOLS = ["get_session_context", "plan_trip", "get_plan_details", "modify_plan", "send_for_approval", "get_booking_status",
          "get_trip_status", "choose_disruption_option", "request_human_help"]
 
@@ -39,7 +40,7 @@ async def test_voice_happy_path_never_books_without_screen_approval():
         code = chat["session_code"]
         r = (await c.post("/api/agent/tools/plan_trip", json={"session_code": code, "request_text": SENTENCE}, headers=AUTH)).json()
         contract(r)
-        assert r["ok"] and r["status"] == "plan_ready" and "Total ₹" in r["say_en"] and r["missing_slots"] == []
+        assert r["ok"] and r["status"] == "plan_ready" and "All in, ₹" in r["say_en"] and r["missing_slots"] == []
         assert r["assumptions"] and r["rejected"]
         d = (await c.post("/api/agent/tools/get_plan_details", json={"session_code": code}, headers=AUTH)).json()
         contract(d)
@@ -97,3 +98,14 @@ async def test_secret_formatting_slips_are_tolerated():
         await c.post("/api/agent/tools/get_session_context", json={}, headers={"Authorization": "Bearer nope"})
         f = (await c.get("/healthz")).json()["last_tool_auth_failure"]
         assert f["token_len"] == 4 and f["expected_len"] == len("test-secret") and "nope" not in str(f)
+
+
+async def test_voice_question_turn_carries_the_session_code():
+    async with client() as c:
+        r = (await c.post("/api/agent/tools/plan_trip", json={"request_text": BASE}, headers=AUTH)).json()
+        assert r["ok"] and r["status"] == "need_info" and r["asking"] == ["mode", "hotel"]
+        code = r["session_code"]
+        assert r["say_en"].startswith("Your Raahi code is " + " ".join(code))
+        r2 = (await c.post("/api/agent/tools/plan_trip", json={"session_code": code, "request_text": "The train is fine, and yes a hotel"},
+                           headers=AUTH)).json()
+        assert r2["status"] == "plan_ready" and r2["trip_id"] and "Rajdhani" in r2["say_en"] and r2["session_code"] == code

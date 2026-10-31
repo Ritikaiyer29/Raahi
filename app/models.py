@@ -218,6 +218,7 @@ class TripRequest(Row, Base):
     missing_slots: Mapped[list] = mapped_column(JSONType, default=list)
     assumed_slots: Mapped[list] = mapped_column(JSONType, default=list)  # filled by defaults, shown as chips
     plan_type: Mapped[str] = S(12, default="intercity")  # intercity / commute / day_plan
+    preferences: Mapped[dict] = mapped_column(JSONType, default=dict)  # mode, hotel, trip_type, asked (last questions)
 
 
 class Trip(Row, Base):

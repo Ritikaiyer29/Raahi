@@ -38,6 +38,8 @@ class Inventory:
     hours: dict[str, tuple[str, str]] = field(default_factory=dict)
     flights_out: list[dict] = field(default_factory=list)
     flights_ret: list[dict] = field(default_factory=list)
+    trains_out: list[dict] = field(default_factory=list)
+    trains_ret: list[dict] = field(default_factory=list)
     hotels: list[dict] = field(default_factory=list)
     addons: dict[str, dict] = field(default_factory=dict)
 
@@ -79,6 +81,23 @@ async def _search_flights(s: AsyncSession, frm: str, to: str, day: date) -> list
     return [_flight(f) for f in (await s.execute(q)).scalars().all()]
 
 
+CITY_RAIL = {"BOM": "BCT", "DEL": "NDLS"}  # main long-distance station per demo city
+
+
+def _train(t: m.Train) -> dict:
+    return dict(id=str(t.id), number=t.number, name=t.name, from_station=t.from_station, to_station=t.to_station,
+                dep=ist(t.dep_at), arr=ist(t.arr_at), classes=list(t.classes or []))
+
+
+async def search_trains(s: AsyncSession, frm: str, to: str, lo_day: date, hi_day: date) -> list[dict]:
+    """Trains departing between lo_day 00:00 and hi_day 24:00 (an overnight train leaves the day before it arrives)."""
+    async def load():
+        q = select(m.Train).where(m.Train.from_station == frm, m.Train.to_station == to, m.Train.dep_at >= at(lo_day, "00:00"),
+                                  m.Train.dep_at < at(hi_day + timedelta(days=1), "00:00")).order_by(m.Train.dep_at)
+        return [_train(t) for t in (await s.execute(q)).scalars().all()]
+    return [dict(t) for t in await _cached(("trains", frm, to, lo_day, hi_day), load)]
+
+
 async def search_hotels(s: AsyncSession, city: str) -> list[dict]:
     return [dict(h) for h in await _cached(("hotels", city), lambda: _search_hotels(s, city))]
 
@@ -96,6 +115,11 @@ async def load_inventory(s: AsyncSession, origin: dict, destination: dict, depar
     inv.flights_out = await search_flights(s, origin["city"], destination["city"], depart)
     if ret:
         inv.flights_ret = await search_flights(s, destination["city"], origin["city"], ret)
+    a, b = CITY_RAIL.get(origin["city"]), CITY_RAIL.get(destination["city"])
+    if a and b:
+        inv.trains_out = await search_trains(s, a, b, depart - timedelta(days=1), depart)
+        if ret:
+            inv.trains_ret = await search_trains(s, b, a, ret, ret)
     inv.hotels = await search_hotels(s, destination["city"])
     return inv
 
@@ -118,7 +142,12 @@ async def current_prices(s: AsyncSession, ids: list[str]) -> dict[str, int]:
     """Live price lookup used by the price_drift rule at checkout."""
     import uuid
     out: dict[str, int] = {}
-    uids = [uuid.UUID(i) for i in ids if i]
+    uids = []
+    for i in ids:
+        try:
+            uids.append(uuid.UUID(i))
+        except (TypeError, ValueError):
+            pass  # metro and train refs are not inventory row ids
     for f in (await s.execute(select(m.Flight).where(m.Flight.id.in_(uids)))).scalars():
         out[str(f.id)] = f.fare
     for h in (await s.execute(select(m.Hotel).where(m.Hotel.id.in_(uids)))).scalars():

@@ -29,6 +29,8 @@ class Request:
     arrive_by: str | None = None  # HH:MM
     budget: int | None = None
     services: list[str] = field(default_factory=list)
+    mode: str = "flight"  # flight / train / any
+    hotel: bool | None = None  # None: stay over when there are nights
 
 
 @dataclass

@@ -220,8 +220,8 @@ CREATE TABLE IF NOT EXISTS metro_stations (
 	PRIMARY KEY (id), 
 	UNIQUE (code)
 );
-CREATE INDEX IF NOT EXISTS ix_metro_stations_city_code ON metro_stations (city_code);
 CREATE INDEX IF NOT EXISTS ix_metro_stations_line_code ON metro_stations (line_code);
+CREATE INDEX IF NOT EXISTS ix_metro_stations_city_code ON metro_stations (city_code);
 alter table public.metro_stations enable row level security;
 revoke all on public.metro_stations from anon, authenticated;
 
@@ -353,6 +353,7 @@ CREATE TABLE IF NOT EXISTS trip_requests (
 	missing_slots JSONB NOT NULL, 
 	assumed_slots JSONB NOT NULL, 
 	plan_type VARCHAR(12) NOT NULL, 
+	preferences JSONB NOT NULL, 
 	id UUID NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
@@ -442,8 +443,8 @@ CREATE TABLE IF NOT EXISTS trip_plans (
 	PRIMARY KEY (id), 
 	FOREIGN KEY(request_id) REFERENCES trip_requests (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
-CREATE INDEX IF NOT EXISTS ix_trip_plans_request_id ON trip_plans (request_id);
 CREATE INDEX IF NOT EXISTS ix_trip_plans_trip_id ON trip_plans (trip_id);
+CREATE INDEX IF NOT EXISTS ix_trip_plans_request_id ON trip_plans (request_id);
 alter table public.trip_plans enable row level security;
 revoke all on public.trip_plans from anon, authenticated;
 
@@ -474,8 +475,8 @@ CREATE TABLE IF NOT EXISTS bookings (
 	PRIMARY KEY (id), 
 	FOREIGN KEY(cart_id) REFERENCES carts (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
-CREATE INDEX IF NOT EXISTS ix_bookings_trip_id ON bookings (trip_id);
 CREATE INDEX IF NOT EXISTS ix_bookings_cart_id ON bookings (cart_id);
+CREATE INDEX IF NOT EXISTS ix_bookings_trip_id ON bookings (trip_id);
 alter table public.bookings enable row level security;
 revoke all on public.bookings from anon, authenticated;
 
@@ -552,7 +553,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 	PRIMARY KEY (id), 
 	FOREIGN KEY(booking_id) REFERENCES bookings (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
-CREATE INDEX IF NOT EXISTS ix_tickets_trip_id ON tickets (trip_id);
 CREATE INDEX IF NOT EXISTS ix_tickets_booking_id ON tickets (booking_id);
+CREATE INDEX IF NOT EXISTS ix_tickets_trip_id ON tickets (trip_id);
 alter table public.tickets enable row level security;
 revoke all on public.tickets from anon, authenticated;

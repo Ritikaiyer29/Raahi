@@ -12,6 +12,7 @@ function legTitle(l: Leg) {
     case "walk": return `Walk ${d.minutes} min to ${l.to_label}`;
     case "metro": return `${d.line_name}: ${l.from_label} → ${l.to_label}`;
     case "flight": return `${d.airline} ${d.flight_no}: ${l.from_label} → ${l.to_label}`;
+    case "train": return `${d.train_name} ${d.train_no} · ${d.travel_class}`;
     case "hotel": return `${d.hotel}, ${d.nights} night${d.nights === 1 ? "" : "s"}`;
     default: return `${l.from_label} → ${l.to_label}`;
   }
@@ -21,13 +22,17 @@ function legSub(l: Leg) {
   const d = l.details || {};
   if (l.mode === "hotel") return `Check-in ${d.check_in_time} · ${d.area} · ${d.partner}`;
   if (l.mode === "flight") return `${hhmm(l.start)} → ${hhmm(l.end)} · ${d.baggage}`;
+  if (l.mode === "train") {
+    const nextDay = l.end.slice(0, 10) !== l.start.slice(0, 10) ? " (+1 day)" : "";
+    return `${l.from_label} ${hhmm(l.start)} → ${l.to_label} ${hhmm(l.end)}${nextDay} · ${d.availability}`;
+  }
   if (l.mode === "metro") return `${hhmm(l.start)} → ${hhmm(l.end)} · ${d.stops} stop${d.stops === 1 ? "" : "s"} · QR ticket`;
   return `${hhmm(l.start)} → ${hhmm(l.end)}`;
 }
 
 export function LegRow({ leg, last }: { leg: Leg; last: boolean }) {
   const Icon = MODE_ICON[leg.mode] || Footprints;
-  const tone = leg.mode === "flight" ? "bg-navy text-white" : leg.mode === "hotel" ? "bg-amber-100 text-amber-800" : "bg-sky-50 text-sky-paytm";
+  const tone = leg.mode === "flight" || leg.mode === "train" ? "bg-navy text-white" : leg.mode === "hotel" ? "bg-amber-100 text-amber-800" : "bg-sky-50 text-sky-paytm";
   return (
     <li className="flex gap-3">
       <div className="flex flex-col items-center">
@@ -67,11 +72,21 @@ export function Timeline({ legs }: { legs: Leg[] }) {
 
 function arrival(plan: Plan) {
   const dest = plan.legs.find((l) => l.details?.is_destination);
-  return dest ? hhmm(dest.end) : "";
+  const start = plan.legs[0]?.start;
+  if (!dest) return "";
+  return start && dest.end.slice(0, 10) !== start.slice(0, 10) ? `${dayLabel(dest.end)} ${hhmm(dest.end)}` : hhmm(dest.end);
 }
 
-function flightOf(plan: Plan) {
-  return plan.legs.find((l) => l.mode === "flight" && l.direction === "outbound");
+/** The long-distance leg: a flight or a train. */
+function mainOf(plan: Plan) {
+  return plan.legs.find((l) => (l.mode === "flight" || l.mode === "train") && l.direction === "outbound");
+}
+
+function mainTitle(l: Leg | undefined) {
+  if (!l) return "Option";
+  // Overnight trains leave on different days for the same arrival, so their cards carry the day.
+  return l.mode === "flight" ? `${hhmm(l.start)} ${l.details.airline} · ${l.details.flight_no}`
+    : `${dayLabel(l.start)} ${hhmm(l.start)} · ${l.details.train_name.replace(" (demo)", "")} · ${l.details.travel_class}`;
 }
 
 export function PlanCard({ plan, index, onChoose, busy, selected }: {
@@ -81,7 +96,7 @@ export function PlanCard({ plan, index, onChoose, busy, selected }: {
   const [open, setOpen] = useState(plan.is_pick);
   const [showChecks, setShowChecks] = useState(false);
   const passed = plan.checks.filter((c) => c.passed);
-  const f = flightOf(plan);
+  const f = mainOf(plan);
   return (
     <article className={`card p-4 grid gap-3 border-2 ${plan.is_pick ? "border-sky-paytm" : "border-transparent"}`}>
       <header className="flex items-start justify-between gap-3">
@@ -91,7 +106,7 @@ export function PlanCard({ plan, index, onChoose, busy, selected }: {
           ) : (
             <span className="text-[11px] font-bold uppercase text-slate-400">{t("option")} {index}</span>
           )}
-          <p className="font-bold leading-snug">{f ? `${hhmm(f.start)} ${f.details.airline} · ${f.details.flight_no}` : plan.explanation_en}</p>
+          <p className="font-bold leading-snug">{f ? mainTitle(f) : plan.explanation_en}</p>
           <p className="text-xs text-slate-500">
             {minutesLabel(plan.total_duration)} {t("doorToDoor")} · arrive {arrival(plan)}
           </p>
@@ -134,12 +149,12 @@ export function PlanCard({ plan, index, onChoose, busy, selected }: {
 export function RejectedCard({ plan }: { plan: Plan }) {
   const { t, lang } = useLang();
   const reason = plan.checks.find((c) => !c.passed && c.severity === "block");
-  const f = flightOf(plan);
+  const f = mainOf(plan);
   return (
     <article className="rounded-card border-2 border-dashed border-red-200 bg-red-50/60 p-4 grid gap-2">
       <p className="flex items-center gap-1 text-[11px] font-bold uppercase text-red-600"><AlertTriangle size={12} />{t("rejected")}</p>
       <div className="flex justify-between gap-2">
-        <p className="font-bold line-through decoration-red-300">{f ? `${hhmm(f.start)} ${f.details.airline} · ${f.details.flight_no}` : "Option"}</p>
+        <p className="font-bold line-through decoration-red-300">{mainTitle(f)}</p>
         <p className="font-bold tabular-nums text-slate-500 line-through decoration-red-300">{inr(plan.total_price)}</p>
       </div>
       {reason && (

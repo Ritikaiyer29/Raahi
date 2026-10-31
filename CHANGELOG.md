@@ -26,3 +26,10 @@
 - `/api/conversations/{id}/stream`: SSE sending the whole session state on every change (messages, chips, plans, cart, tickets, agent events), heartbeat 15 s; polling fallback
 - React app: Home, Trip (chat, chips, plan cards with timeline and checks, rejected card), auto-opening approval sheet, Wallet with QR tickets, live Agent activity panel, EN/हिंदी
 - Sarvam agent v1 deployed on +91 80642 69831; call script in docs/DEMO_DAY.md
+
+## Travel-agent conversation + trains
+- Raahi asks what was not said (flight or train, return or one way, hotel), at most two things in one natural sentence; follow-ups acknowledge the answer; "you decide" skips questions
+- Train planning: Aqua Line extended to Mumbai Central, Rajdhani overnight with class choice and availability, New Delhi metro to CP; flight-or-train comparison
+- Optional hotel, one-way plans, past departures never offered, arrive-by only when stated
+- Chips for flight/train and hotel; train legs in the timeline; voice turn carries the session code
+- Migration 0005 (trip_requests.preferences) applied; Supabase re-seeded; 36 tests

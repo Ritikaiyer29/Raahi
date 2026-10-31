@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { CalendarDays, Clock, Gauge, MapPin, Minus, Plus, Users, X } from "lucide-react";
+import { BedDouble, CalendarDays, Clock, Gauge, MapPin, Minus, Plus, TrainFront, Users, X } from "lucide-react";
 import type { Chip } from "../lib/api";
 import { useLang } from "../lib/i18n";
 
 // Only these slots change the plan today; the others (cabin, baggage) are shown so every default is visible.
-const EDITABLE = new Set(["depart_date", "return_date", "party_size", "priority", "arrive_by"]);
-const ICON: Record<string, any> = { origin: MapPin, depart_date: CalendarDays, return_date: CalendarDays, party_size: Users, priority: Gauge, arrive_by: Clock };
+const EDITABLE = new Set(["depart_date", "return_date", "party_size", "priority", "arrive_by", "mode", "hotel"]);
+const ICON: Record<string, any> = { mode: TrainFront, hotel: BedDouble, origin: MapPin, depart_date: CalendarDays, return_date: CalendarDays, party_size: Users, priority: Gauge, arrive_by: Clock };
 
 export function Chips({ chips, onEdit, busy }: { chips: Chip[]; onEdit: (o: Record<string, any>) => Promise<void>; busy: boolean }) {
   const { t, lang } = useLang();
@@ -59,6 +59,26 @@ function ChipEditor({ chip, onClose, onApply }: { chip: Chip; onClose: () => voi
           ))}
         </div>
       )}
+      {chip.slot === "mode" && (
+        <div className="grid grid-cols-3 gap-2">
+          {(["flight", "train", "any"] as const).map((m) => (
+            <button key={m} onClick={() => onApply({ mode: m })}
+              className={`rounded-xl py-2 text-xs font-semibold border ${chip.value === m ? "border-sky-paytm bg-sky-50" : "border-slate-200"}`}>
+              {t(m === "any" ? "either" : m)}
+            </button>
+          ))}
+        </div>
+      )}
+      {chip.slot === "hotel" && (
+        <div className="grid grid-cols-2 gap-2">
+          {[true, false].map((h) => (
+            <button key={String(h)} onClick={() => onApply({ hotel: h })}
+              className={`rounded-xl py-2 text-xs font-semibold border ${chip.value === h ? "border-sky-paytm bg-sky-50" : "border-slate-200"}`}>
+              {t(h ? "hotelStay" : "noHotel")}
+            </button>
+          ))}
+        </div>
+      )}
       {chip.slot === "party_size" && (
         <div className="flex items-center justify-between">
           <span className="text-sm">{t("travellers")}</span>
@@ -84,7 +104,7 @@ function ChipEditor({ chip, onClose, onApply }: { chip: Chip; onClose: () => voi
           <input id="chip-arrive" type="time" className="border rounded-lg px-3 py-2" value={value || "13:00"} onChange={(e) => setValue(e.target.value)} />
         </label>
       )}
-      {chip.slot !== "priority" && (
+      {!["priority", "mode", "hotel"].includes(chip.slot) && (
         <button className="rounded-full bg-navy text-white py-2 text-sm font-semibold" onClick={() => onApply({ [chip.slot]: value })}>{t("apply")}</button>
       )}
     </div>

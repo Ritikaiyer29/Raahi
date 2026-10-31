@@ -30,6 +30,11 @@ class ParsedRequest(BaseModel):
     budget: int | None = Field(None, ge=0)
     services: list[str] = []
     language: str = "en"
+    # Travel-agent preferences, asked naturally when not stated (see preference_question)
+    mode: str | None = None  # flight / train / any
+    hotel: bool | None = None
+    trip_type: str | None = None  # one_way / round_trip
+    decide_for_me: bool = False
 
 
 def detect_language(text: str) -> str:
@@ -80,7 +85,8 @@ def _dates_with_month(t: str, today: date) -> list[date]:
     return [d for _, d in sorted(found)]
 
 
-def parse_intent(text: str, today: date | None = None, previous: ParsedRequest | None = None) -> ParsedRequest:
+def parse_intent(text: str, today: date | None = None, previous: ParsedRequest | None = None,
+                 pending: list[str] | None = None) -> ParsedRequest:
     today = today or today_ist()
     t = text.translate(DEVANAGARI_DIGITS).lower().replace("’", "'")
     out = previous.model_copy(deep=True) if previous else ParsedRequest()
@@ -151,7 +157,145 @@ def parse_intent(text: str, today: date | None = None, previous: ParsedRequest |
         out.budget = int(m.group(1).replace(",", ""))
     if re.search(r"\binsurance\b|बीमा", t) and "insurance" not in out.services:
         out.services.append("insurance")
+    _parse_preferences(t, out, pending or [])
     return out
+
+
+WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6}
+YES = r"\b(yes|yeah|yep|sure|please|ok|okay|haan|han|ha|ji|bilkul|zaroor)\b|हाँ|हां|जी"
+NO = r"\b(no|nope|nah|nahi|nahin|na)\b|नहीं"
+
+
+def _parse_preferences(t: str, out: ParsedRequest, pending: list[str]) -> None:
+    """Mode, hotel and trip type from free text, plus a bare yes/no when exactly that question was asked."""
+    if re.search(r"\b(you decide|you choose|your call|up to you|just plan|plan it|anything works|whatever works|surprise me|"
+                 r"don'?t ask|no more questions|koi bhi chalega|kuch bhi chalega|aap dekh lo|tum dekh lo)\b|आप देख लो|कुछ भी चलेगा", t):
+        out.decide_for_me = True
+
+    flight = re.search(r"\b(flight|flights|fly|flying|plane|aeroplane|airplane|by air)\b|फ्लाइट|हवाई", t)
+    train = re.search(r"\b(train|trains|rajdhani|rail|railway|by rail)\b|ट्रेन|रेल|राजधानी", t)
+    either = re.search(r"\b(either|any|whichever|no preference|doesn'?t matter|koi bhi)\b|कोई भी", t)
+    if flight and not train:
+        out.mode = "flight"
+    elif train and not flight:
+        out.mode = "train"
+    elif (flight and train) or (either and "mode" in pending):
+        out.mode = "any"
+
+    no_hotel = re.search(r"\b(no|don'?t|do not|without|nahi|nahin|skip)\b[^.,]{0,25}\b(hotel|stay|room|accommodation)\b|"
+                         r"\bstaying (with|at) (a |my )?(friend|friends|family|relatives?|cousins?|home|place)|\bday trip\b|"
+                         r"\b(have|got) (a )?(place|stay) (to stay|sorted)|होटल नहीं|होटल की ज़रूरत नहीं", t)
+    if no_hotel:
+        out.hotel = False
+    elif re.search(r"\b(hotel|stay|room|accommodation)\b|होटल", t):
+        out.hotel = True
+    elif "hotel" in pending and out.hotel is None:
+        if re.search(NO, t):
+            out.hotel = False
+        elif re.search(YES, t):
+            out.hotel = True
+
+    if re.search(r"\bone[- ]way\b|\bnot (coming|going) back\b|\bno return\b|\bek taraf|एक तरफ़ा|एक तरफा", t):
+        out.trip_type, out.return_date = "one_way", None
+    elif out.return_date or re.search(r"\bround[- ]trip\b|\b(return|returning|coming back|back)\b|wapas|vapas|वापस", t):
+        out.trip_type = "round_trip"
+    elif "trip_type" in pending and re.search(NO, t):
+        out.trip_type = "one_way"
+
+    # "for 3 days", "2 nights", "back on Tuesday": return dates a traveller actually says
+    if out.depart_date and not out.return_date and out.trip_type != "one_way":
+        dep = date.fromisoformat(out.depart_date)
+        m = re.search(r"\b(?:for\s+)?(\d{1,2})\s+(day|days|night|nights)\b", t)
+        w = re.search(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", t)
+        if m:
+            n = int(m.group(1))
+            out.return_date, out.trip_type = (dep + timedelta(days=n)).isoformat(), "round_trip"
+        elif w and ("return_date" in pending or out.trip_type == "round_trip"):
+            ahead = (WEEKDAYS[w.group(1)] - dep.weekday()) % 7 or 7
+            out.return_date, out.trip_type = (dep + timedelta(days=ahead)).isoformat(), "round_trip"
+
+
+def _pick(options: list[str], seed: str) -> str:
+    """Varied but stable wording: the same request gets the same sentence, different requests sound different."""
+    return options[sum(map(ord, seed)) % len(options)]
+
+
+def preference_question(p: ParsedRequest, follow_up: bool = False) -> tuple[list[str], str, str] | None:
+    """What a good travel agent would still ask: at most two things, in one natural sentence.
+    Returns (slots asked, English, Hindi), or None when there is enough to plan."""
+    if p.decide_for_me:
+        return None
+    asks: list[str] = []
+    if p.mode is None:
+        asks.append("mode")
+    if p.trip_type is None and not p.return_date:
+        asks.append("trip_type")
+    elif p.trip_type == "round_trip" and not p.return_date:
+        asks.append("return_date")
+    if p.hotel is None and len(asks) < 2 and "trip_type" not in asks:
+        asks.append("hotel")
+    asks = asks[:2]
+    if not asks:
+        return None
+
+    dest = p.destination or "there"
+    nights = 0
+    if p.return_date and p.depart_date:
+        nights = (date.fromisoformat(p.return_date) - date.fromisoformat(p.depart_date)).days
+    when = ""
+    if p.depart_date:
+        days = (date.fromisoformat(p.depart_date) - today_ist()).days
+        when = {0: "today", 1: "tomorrow"}.get(days, f"on {date.fromisoformat(p.depart_date):%a %d %b}")
+    by = " by lunch" if p.arrive_by == CONFIG.default_arrive_by_lunch else (f" by {p.arrive_by}" if p.arrive_by else "")
+    seed = f"{p.origin}{dest}{p.depart_date}{''.join(asks)}"
+    ack = _pick([f"{dest}{by} {when}, got it.", f"Okay, {dest}{by} {when}.", f"Sure, {dest}{by} {when}."], seed).replace("  ", " ")
+    if follow_up:
+        # Acknowledge the answer just given, like a person would, instead of repeating the request.
+        bits = []
+        if p.mode:
+            bits.append({"train": "Train it is", "flight": "Flying it is", "any": "I'll compare flights and trains"}[p.mode])
+        if p.return_date:
+            bits.append(f"back on {date.fromisoformat(p.return_date):%a %d %b}")
+        elif p.trip_type == "one_way":
+            bits.append("one way")
+        ack = (", ".join(bits) + ".") if bits else _pick(["Got it.", "Perfect.", "Okay."], seed)
+
+    en_q = {
+        "mode": ["Would you like to fly, or is the overnight Rajdhani okay?", "Flight or train for this one?",
+                 "Shall I look at flights, or would you prefer the train?"],
+        "trip_type": ["Are you coming back, or is it one way?", "Is this one way, or should I plan the return too?"],
+        "return_date": ["When are you coming back?", "Which day should I plan the return for?"],
+        "hotel": [f"Shall I book you a stay near {dest}" + (f" for the {nights} night{'s' if nights != 1 else ''}?" if nights else "?"),
+                  f"Do you need a hotel near {dest}, or is the stay sorted?"],
+    }
+    hi_q = {
+        "mode": ["फ्लाइट से जाना है, या रात की राजधानी ट्रेन चलेगी?", "फ्लाइट या ट्रेन?"],
+        "trip_type": ["वापस भी आना है, या सिर्फ़ एक तरफ़ा?"],
+        "return_date": ["वापस कब आना है?"],
+        "hotel": [f"{dest} के पास होटल भी बुक कर दूँ?"],
+    }
+    first = _pick(en_q[asks[0]], seed)
+    en = f"{ack} {first}"
+    if len(asks) > 1:
+        second = _pick(en_q[asks[1]], seed + "2")
+        en += " And " + second[0].lower() + second[1:]
+    hi = f"{dest}, समझ गया। " + " ".join(_pick(hi_q[a], seed) for a in asks)
+    return asks, en, hi
+
+
+def apply_preference_defaults(p: ParsedRequest) -> list[str]:
+    """When the traveller says 'you decide': compare flights and trains, stay over if there are nights, one way if no return."""
+    assumed = []
+    if p.mode is None:
+        p.mode = "any"
+        assumed.append("mode")
+    if p.trip_type is None:
+        p.trip_type = "round_trip" if p.return_date else "one_way"
+        assumed.append("trip_type")
+    if p.hotel is None:
+        p.hotel = bool(p.return_date)
+        assumed.append("hotel")
+    return assumed
 
 
 def missing_slots(p: ParsedRequest) -> list[str]:
@@ -198,14 +342,21 @@ def assumptions(p: ParsedRequest, assumed: list[str]) -> list[dict]:
                     p.party_size == 1))
     en, hi = PRIORITY_LABELS.get(p.priority, PRIORITY_LABELS["economical"])
     out.append(chip("priority", p.priority, en, hi))
+    mode_labels = {"flight": ("Flight", "फ्लाइट"), "train": ("Train", "ट्रेन"), "any": ("Flight or train", "फ्लाइट या ट्रेन")}
+    m_en, m_hi = mode_labels.get(p.mode or "any", mode_labels["any"])
+    out.append(chip("mode", p.mode or "any", m_en, m_hi, "mode" in assumed))
+    if p.hotel is not None:
+        out.append(chip("hotel", p.hotel, "Hotel stay" if p.hotel else "No hotel", "होटल" if p.hotel else "होटल नहीं", "hotel" in assumed))
     out.append(chip("cabin", "economy", "Economy", "इकॉनमी"))
     if p.return_date:
         r = date.fromisoformat(p.return_date)
         out.append(chip("return_date", p.return_date, f"Return {r:%a %d %b}", f"वापसी {r:%d/%m}", False))
     else:
         out.append(chip("return_date", None, "One-way", "एक तरफ़ा"))
-    out.append(chip("arrive_by", p.arrive_by, f"Arrive by {p.arrive_by or CONFIG.default_arrive_by_lunch}",
-                    f"{p.arrive_by or CONFIG.default_arrive_by_lunch} तक पहुँचें", p.arrive_by is None))
+    if p.arrive_by:
+        out.append(chip("arrive_by", p.arrive_by, f"Arrive by {p.arrive_by}", f"{p.arrive_by} तक पहुँचें", False))
+    else:
+        out.append(chip("arrive_by", None, "Arrive any time", "कभी भी पहुँचें", True))
     out.append(chip("baggage", "cabin_only", "Cabin bag only", "सिर्फ़ केबिन बैग"))
     return out
 

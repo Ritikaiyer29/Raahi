@@ -2,7 +2,8 @@ import httpx
 
 from app.main import app
 
-SENTENCE = "I'm at Paytm's Marol office. I need to be at Connaught Place by lunch tomorrow, back on the 24th. Keep it cheap."
+BASE = "I'm at Paytm's Marol office. I need to be at Connaught Place by lunch tomorrow, back on the 24th. Keep it cheap."
+SENTENCE = BASE + " Flight please, and book a hotel near CP."
 
 
 def client():
@@ -14,7 +15,7 @@ async def test_demo_sentence_end_to_end():
         r = (await c.post("/api/chat", json={"message": SENTENCE})).json()
         assert r["status"] == "plan_ready" and r["triage"] == "AUTO"
         assert r["missing_slots"] == [] and r["slots"]["return_date"]
-        assert "Total ₹" in r["reply_en"] and "send it to your Paytm screen" in r["reply_en"]
+        assert "All in, ₹" in r["reply_en"] and "send it to your Paytm screen" in r["reply_en"]
         assert r["rejected"][0]["rule_id"] == "first_last_metro"
         snap = (await c.get(f"/api/trips/{r['trip_id']}")).json()
         assert snap["trip"]["revision"] >= 1
@@ -26,34 +27,68 @@ async def test_demo_sentence_end_to_end():
         assert agents[:4] == ["Concierge", "Scouts", "Planner", "Checker"]
 
 
-async def test_plan_first_no_questions_and_assumptions():
+async def test_travel_agent_asks_two_things_naturally_then_plans():
     async with client() as c:
-        r = (await c.post("/api/chat", json={"message": SENTENCE})).json()
-        assert r["missing_slots"] == [] and r["reply_en"].count("?") == 1  # only "Shall I send it…?"
-        slots = {a["slot"]: a for a in r["assumptions"]}
-        assert slots["party_size"]["label_en"] == "1 traveller" and slots["priority"]["value"] == "economical"
+        r = (await c.post("/api/chat", json={"message": BASE})).json()
+        # return date and "cheap" were said, so only flight/train and hotel are asked, in one sentence
+        assert r["status"] == "need_info" and r["asking"] == ["mode", "hotel"] and r["assumptions"] == []
+        assert r["reply_en"].count("?") == 2 and "Connaught Place" in r["reply_en"]
+        r = (await c.post("/api/chat", json={"message": "Flight please, and yes book a hotel", "conversation_id": r["conversation_id"]})).json()
+        assert r["status"] == "plan_ready" and r["asking"] == []
+        chips = {a["slot"]: a for a in r["assumptions"]}
+        assert chips["mode"]["label_en"] == "Flight" and chips["hotel"]["label_en"] == "Hotel stay"
         assert "flights only" not in r["reply_en"].lower()
-        # Missing origin and date are assumed, not asked
-        r = (await c.post("/api/chat", json={"message": "I want to go to Connaught Place"})).json()
-        assert r["status"] == "plan_ready" and r["missing_slots"] == []
-        assumed = {a["slot"] for a in r["assumptions"] if a["assumed"]}
-        assert {"origin", "depart_date"} <= assumed
 
 
-async def test_read_back_is_clean_for_one_way_and_return():
+async def test_only_asks_what_was_not_said():
     async with client() as c:
-        r = (await c.post("/api/chat", json={"message": "Marol office to Connaught Place tomorrow"})).json()
-        assert ".." not in r["reply_en"] and "One way" in r["reply_en"]
-        r = (await c.post("/api/chat", json={"message": SENTENCE})).json()
-        assert ".." not in r["reply_en"] and "fly back on" in r["reply_en"] and "nights" in r["reply_en"]
+        r = (await c.post("/api/chat", json={"message": "BKC to Connaught Place tomorrow"})).json()
+        assert r["status"] == "need_info" and r["asking"] == ["mode", "trip_type"]
+        conv = r["conversation_id"]
+        r = (await c.post("/api/chat", json={"message": "Train, and I'll be there for 2 days", "conversation_id": conv})).json()
+        assert r["status"] == "need_info" and r["asking"] == ["hotel"]
+        r = (await c.post("/api/chat", json={"message": "yes please", "conversation_id": conv})).json()
+        assert r["status"] == "plan_ready"
+        snap = (await c.get(f"/api/trips/{r['trip_id']}")).json()
+        pick = snap["plans"][0]
+        assert [l["mode"] for l in pick["legs"] if l["mode"] in ("train", "flight")] == ["train", "train"]
+        assert any(l["mode"] == "hotel" for l in pick["legs"]) and "Rajdhani" in r["reply_en"]
+
+
+async def test_you_decide_skips_questions_and_compares_flights_with_trains():
+    async with client() as c:
+        r = (await c.post("/api/chat", json={"message": "Marol to Connaught Place by lunch tomorrow, back on the 24th, cheap. You decide."})).json()
+        assert r["status"] == "plan_ready"
+        chips = {a["slot"]: a for a in r["assumptions"]}
+        assert chips["mode"]["value"] == "any" and chips["mode"]["assumed"] and chips["hotel"]["value"] is True
+        snap = (await c.get(f"/api/trips/{r['trip_id']}")).json()
+        modes = {l["mode"] for p in snap["plans"] for l in p["legs"] if l["mode"] in ("train", "flight")}
+        assert modes == {"train", "flight"}
+
+
+async def test_no_hotel_and_one_way_are_respected():
+    async with client() as c:
+        r = (await c.post("/api/chat", json={"message": "Marol office to CP tomorrow by flight, one way, no hotel, staying with friends"})).json()
+        assert r["status"] == "plan_ready"
+        snap = (await c.get(f"/api/trips/{r['trip_id']}")).json()
+        assert all(l["mode"] != "hotel" and l["direction"] == "outbound" for l in snap["plans"][0]["legs"])
+        assert "One way" in r["reply_en"]
 
 
 async def test_only_missing_destination_asks_one_question():
     async with client() as c:
         r = (await c.post("/api/chat", json={"message": "I need to travel tomorrow, keep it cheap"})).json()
         assert r["status"] == "need_info" and r["missing_slots"] == ["destination"] and r["reply_en"].count("?") == 1
-        r = (await c.post("/api/chat", json={"message": "Connaught Place", "conversation_id": r["conversation_id"]})).json()
+        r = (await c.post("/api/chat", json={"message": "Connaught Place, by flight, one way, no hotel", "conversation_id": r["conversation_id"]})).json()
         assert r["status"] == "plan_ready"
+
+
+async def test_read_back_is_clean_for_one_way_and_return():
+    async with client() as c:
+        r = (await c.post("/api/chat", json={"message": "Marol office to Connaught Place tomorrow, flight, one way, no hotel"})).json()
+        assert ".." not in r["reply_en"] and "One way" in r["reply_en"]
+        r = (await c.post("/api/chat", json={"message": SENTENCE})).json()
+        assert ".." not in r["reply_en"] and "fly back on" in r["reply_en"] and "nights" in r["reply_en"]
 
 
 async def test_editing_a_chip_replans_and_reranks():

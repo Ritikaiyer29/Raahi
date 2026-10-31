@@ -5,7 +5,8 @@ import httpx
 from app.main import app
 
 AUTH = {"Authorization": "Bearer test-secret"}
-SENTENCE = "I'm at Paytm's Marol office. I need to be at Connaught Place by lunch tomorrow, back on the 24th. Keep it cheap."
+BASE = "I'm at Paytm's Marol office. I need to be at Connaught Place by lunch tomorrow, back on the 24th. Keep it cheap."
+SENTENCE = BASE + " Flight please, and book a hotel near CP."
 
 
 def client():

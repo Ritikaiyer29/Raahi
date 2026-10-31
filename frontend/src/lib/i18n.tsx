@@ -17,7 +17,7 @@ const STRINGS = {
     soon: "soon",
     home: "Home", trip: "Trip", wallet: "Wallet", activity: "Activity",
     typeHere: "Where do you want to go?",
-    tryDemo: "Try: Marol office to Connaught Place by lunch tomorrow, back on the 24th, cheap",
+    tryDemo: "Try: I'm at Paytm's Marol office, I need to be at Connaught Place by lunch tomorrow, back on the 24th. Keep it cheap.",
     assumptions: "Raahi assumed (tap to change)",
     options: "Door-to-door options",
     pick: "Raahi's pick",
@@ -58,6 +58,7 @@ const STRINGS = {
     departDate: "Travel date",
     arriveBy: "Arrive by",
     apply: "Apply",
+    flight: "Flight", train: "Train", either: "Either", hotelStay: "Hotel stay", noHotel: "No hotel",
   },
   hi: {
     demoBadge: "डेमो डेटा · कोई असली बुकिंग नहीं",
@@ -114,6 +115,7 @@ const STRINGS = {
     departDate: "यात्रा की तारीख़",
     arriveBy: "पहुँचने का समय",
     apply: "लागू करें",
+    flight: "फ्लाइट", train: "ट्रेन", either: "कोई भी", hotelStay: "होटल", noHotel: "होटल नहीं",
   },
 } as const;
 

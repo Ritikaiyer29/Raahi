@@ -9,7 +9,10 @@
 - **Delhi terminals:** all seeded DEL flights use T3 so the Airport Express connects. Fictional airlines and flight numbers.
 - **Return flights** depart at 14:00 or later by default (after hotel check-out). Demo assumption.
 - **One orchestrator, two doors:** app API and Sarvam tool API call the same trip service; no logic is duplicated in the voice prompt.
-- **Plan first (v2):** missing origin defaults to the user's saved base (demo: Paytm Marol office) and missing date to tomorrow, both shown as editable chips. The only pre-plan question is a missing destination.
+- **Travel-agent questions (user decision, 31 Oct, overrides v2 'zero questions'):** before planning, Raahi asks only what was not said: flight or train, return or one way, hotel or not. At most two in one natural sentence, wording varied and stable per request, the next turn acknowledges the answer. "You decide" skips the questions (compare flights and trains, hotel if there are nights). Chip edits never ask.
+- **Trains:** the Planner treats a flight or a train as the trunk leg; metro stations carry a hub code (airport terminal or railway station BCT/NDLS). Overnight trains are searched from the day before the travel date.
+- **arrive_by** is checked only when the traveller states a time; the 'Arrive any time' chip says so.
+- **Plan first (v2, superseded for preferences):** missing origin defaults to the user's saved base (demo: Paytm Marol office) and missing date to tomorrow, both shown as editable chips. The only pre-plan question is a missing destination.
 - **Near-tie is not a question (v2):** when two options are within 5 %, both are shown; the cheaper is Raahi's pick. ASK is reserved for checkout-time problems (price drift, waitlist).
 - **Voice tool input:** tools receive the raw utterance and re-parse it with the same Concierge, so voice and chat cannot disagree.
 - **Sarvam tool auth:** the bearer secret is stored as a credential in the Sarvam console (the MCP refuses to set auth, by design). Timeout 20 s.

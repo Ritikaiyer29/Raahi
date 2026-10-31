@@ -92,13 +92,16 @@ def terminal_match(plan: Plan, ctx: Context) -> CheckResult:
 
 
 def arrive_by(plan: Plan, ctx: Context) -> CheckResult:
-    deadline = plan.request.arrive_by or ctx.cfg.default_arrive_by_lunch
+    if not plan.request.arrive_by:
+        return _r("arrive_by", True, "info", "No arrival deadline was given.", "पहुँचने का कोई समय नहीं बताया गया।")
+    deadline = plan.request.arrive_by
     out = [l for l in plan.outbound() if l.mode != "hotel"]
     if not out:
         return _r("arrive_by", False, "block", "No outbound journey.", "कोई जाने का सफ़र नहीं।")
     dest = next((l for l in out if l.details.get("is_destination")), out[-1])
-    ok = ist(dest.end) <= at(ist(dest.end).date(), deadline)
-    arr = hhmm(dest.end)
+    day = date.fromisoformat(plan.request.depart_date) if plan.request.depart_date else ist(dest.end).date()
+    ok = ist(dest.end) <= at(day, deadline)
+    arr = hhmm(dest.end) if ist(dest.end).date() == day else f"{hhmm(dest.end)} on {ist(dest.end):%d %b}"
     return _r("arrive_by", ok, "block",
               f"Reach {dest.to_label} at {arr}, before {deadline}." if ok else f"Arrives {arr}, after the {deadline} deadline.",
               f"{arr} तक पहुँचेंगे, {deadline} से पहले।" if ok else f"{arr} पर पहुँचेंगे, {deadline} के बाद।",
