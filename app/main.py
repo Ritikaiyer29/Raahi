@@ -1,4 +1,7 @@
+import asyncio
+import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
 from contextlib import asynccontextmanager
 
@@ -13,6 +16,7 @@ from .api import chat as chat_api, inventory as inventory_api
 from .db import engine
 
 settings = get_settings()
+log = logging.getLogger("raahi")
 
 
 @asynccontextmanager
@@ -32,19 +36,18 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 @app.get("/healthz")
 async def healthz():
-    db_ok = True
+    """Always 200 so Render keeps the service up; `db` says whether Postgres is reachable. Errors are redacted."""
+    db_ok, err = True, None
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("select 1"))
-    except Exception:
-        db_ok = False
-    body = {
-        "status": "ok" if db_ok else "degraded",
-        "db": db_ok,
-        "version": __version__,
-        "commit": settings.commit,
-    }
-    return JSONResponse(body, status_code=200 if db_ok else 503)
+        async with asyncio.timeout(20):
+            async with engine.connect() as conn:
+                await conn.execute(text("select 1"))
+    except Exception as e:  # never include str(e): it can contain the connection string
+        db_ok, err = False, type(e).__name__
+        log.error("healthz db check failed: %s", err)
+    host = urlparse(settings.async_database_url).hostname if settings.database_url else "sqlite"
+    return {"status": "ok" if db_ok else "degraded", "db": db_ok, "db_error": err, "db_host": host,
+            "version": __version__, "commit": settings.commit}
 
 
 if STATIC_DIR.exists():
